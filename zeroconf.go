@@ -9,12 +9,10 @@ import (
 )
 
 var (
-	Registry = &registry{
-		ops:         make(chan Operation),
-		services:    nil,
-		subscribers: nil,
-	}
+	Registry = newRegistry()
 )
+
+
 
 func openIPv4Socket() *net.UDPConn {
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{
@@ -40,6 +38,18 @@ func init() {
 		registry: Registry,
 	}
 	go listener.mainloop()
+
+	// simple logger
+	go func() {
+		for op := range Registry.Subscribe() {
+			switch op.Op {
+			case Add:
+				log.Printf("Add: %#v", op.Service)
+			case Remove:
+				log.Printf("Remove: %#v", op.Service)
+			}
+		}
+	}()
 }
 
 func mcastInterfaces() []net.Interface {
@@ -83,8 +93,19 @@ type Operation struct {
 
 type registry struct {
 	ops         chan Operation
+	subscribe   chan *subscription
 	services    []*Service
 	subscribers []*subscription
+}
+
+// TODO registry is not an exported type, should it be?
+func newRegistry() *registry {
+	return &registry{
+                ops:         make(chan Operation),
+		subscribe:	make(chan *subscription),
+                services:    nil,
+                subscribers: nil,
+        }
 }
 
 func (r *registry) Add(service *Service) {
@@ -99,6 +120,15 @@ func (r *registry) Remove(service *Service) {
 		Op:      Remove,
 		Service: service,
 	}
+}
+
+// TODO subscribe should take a *Query
+func (r *registry) Subscribe() chan Operation {
+	s := &subscription {
+		make(chan Operation),
+	}
+	r.subscribe <- s
+	return s.c
 }
 
 func (r *registry) mainloop() {
@@ -147,9 +177,15 @@ func (l *listener) mainloop() {
 		}
 		msg.Unpack(buf[:read])
 		if msg.Response {
+			s := new(Service)
 			for _, rr := range msg.Answer {
 				log.Printf("%#v", rr)
+				switch r := rr.(type) {
+				case *dns.RR_SRV:
+					
+				}
 			}
+			l.registry.Add(s)
 		}
 	}
 }
