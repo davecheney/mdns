@@ -1,6 +1,7 @@
 package zeroconf
 
 import (
+	"log"
 	"strings"
 	"net"
 
@@ -12,7 +13,13 @@ type Service struct {
         Name      string
         Domain    string
         Interface *net.Interface
-        Address   net.Addr
+        Host   	Host
+	Additional	[]string
+}
+
+type Host struct {
+	Name	string
+	Port	uint16
 }
 
 // s.unmarshal may not be complete, return false if so
@@ -28,6 +35,13 @@ func (s *Service) unmarshal(msg *dns.Msg) {
 			s.Name = x[0]
 			s.Type = strings.Join(x[1:3], ".")
 			s.Domain = strings.Join(x[3:], ".")
+			s.Host.Name = rr.Target
+			s.Host.Port = rr.Port
+
+		case *dns.RR_TXT:
+			s.Additional = append(s.Additional, strings.Split(rr.Txt, ",")...)
+		default:
+			log.Printf("%#v", rr)
 		}
 	}
 }
