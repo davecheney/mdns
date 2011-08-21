@@ -11,12 +11,11 @@ import (
 
 var (
 	ServiceRegistry = &serviceRegistry{
-                ops:         make(chan Operation),
-                subscribe:   make(chan subscription),
-                services:    nil,
-                subscribers: nil,
-        }
-
+		ops:         make(chan Operation),
+		subscribe:   make(chan subscription),
+		services:    nil,
+		subscribers: nil,
+	}
 )
 
 func openIPv4Socket() *net.UDPConn {
@@ -39,7 +38,7 @@ func init() {
 	}
 
 	listener := &listener{
-		socket:   socket,
+		socket:          socket,
 		serviceRegistry: ServiceRegistry,
 	}
 	go listener.mainloop()
@@ -49,9 +48,9 @@ func init() {
 		for op := range ServiceRegistry.Subscribe() {
 			switch op.Op {
 			case Add:
-				log.Printf("Add: %#v", op.Service)
+				log.Print("Add: ", op.Service)
 			case Remove:
-				log.Printf("Remove: %#v", op.Service)
+				log.Print("Remove: ", op.Service)
 			}
 		}
 	}()
@@ -92,16 +91,15 @@ type serviceRegistry struct {
 	ops         chan Operation
 	subscribe   chan subscription
 	services    []*Service
-	hosts       []*Host
 	subscribers []subscription
 }
 
 func (r *serviceRegistry) AddService(service *Service) {
-	r.ops <- Operation{ Add, service }
+	r.ops <- Operation{Add, service}
 }
 
 func (r *serviceRegistry) RemoveService(service *Service) {
-	r.ops <- Operation{ Remove, service }
+	r.ops <- Operation{Remove, service}
 }
 
 // TODO subscribe should take a *Query
@@ -136,7 +134,7 @@ func (r *serviceRegistry) notifySubscribers(op Operation) {
 type subscription chan Operation
 
 type listener struct {
-	socket   *net.UDPConn
+	socket          *net.UDPConn
 	serviceRegistry *serviceRegistry
 }
 
@@ -150,8 +148,23 @@ func (l *listener) mainloop() {
 		msg := new(dns.Msg)
 		msg.Unpack(buf[:read])
 		s := new(Service)
-		s.unmarshal(msg)
-		if s.valid() {
+		for i := range msg.Answer {
+			switch rr := msg.Answer[i].(type) {
+			case *dns.RR_SRV:
+				x := strings.Split(rr.Hdr.Name, ".")
+				s.Name = x[0]
+				s.Type = strings.Join(x[1:3], ".")
+				s.Domain = strings.Join(x[3:], ".")
+				s.Host = rr.Target
+				s.Port = rr.Port
+
+			case *dns.RR_TXT:
+				s.Additional = append(s.Additional, strings.Split(rr.Txt, ",")...)
+			default:
+				log.Printf("%#v", rr)
+			}
+		}
+		if len(s.Name) > 0 {
 			l.serviceRegistry.AddService(s)
 		}
 	}
@@ -166,28 +179,8 @@ type Service struct {
 	Additional []string
 }
 
-// s.unmarshal may not be complete, return false if so
-func (s *Service) valid() bool {
-	return len(s.Name) > 0
-}
-
-func (s *Service) unmarshal(msg *dns.Msg) {
-	for i := range msg.Answer {
-		switch rr := msg.Answer[i].(type) {
-		case *dns.RR_SRV:
-			x := strings.Split(rr.Hdr.Name, ".")
-			s.Name = x[0]
-			s.Type = strings.Join(x[1:3], ".")
-			s.Domain = strings.Join(x[3:], ".")
-			s.Host = rr.Target
-			s.Port = rr.Port
-
-		case *dns.RR_TXT:
-			s.Additional = append(s.Additional, strings.Split(rr.Txt, ",")...)
-		default:
-			log.Printf("%#v", rr)
-		}
-	}
+func (s *Service) String() string {
+	return fmt.Sprintf("%s\t%s.%s\t@%s:%d", s.Name, s.Type, s.Domain, s.Host, s.Port)
 }
 
 type Host struct {
