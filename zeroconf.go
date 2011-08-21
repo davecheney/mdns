@@ -14,7 +14,6 @@ var (
                 ops:         make(chan Operation),
                 subscribe:   make(chan subscription),
                 services:    nil,
-                hosts:       nil,
                 subscribers: nil,
         }
 
@@ -98,17 +97,11 @@ type serviceRegistry struct {
 }
 
 func (r *serviceRegistry) AddService(service *Service) {
-	r.ops <- Operation{
-		Op:      Add,
-		Service: service,
-	}
+	r.ops <- Operation{ Add, service }
 }
 
 func (r *serviceRegistry) RemoveService(service *Service) {
-	r.ops <- Operation{
-		Op:      Remove,
-		Service: service,
-	}
+	r.ops <- Operation{ Remove, service }
 }
 
 // TODO subscribe should take a *Query
@@ -124,17 +117,13 @@ func (r *serviceRegistry) mainloop() {
 		case op := <-r.ops:
 			switch op.Op {
 			case Add:
-				r.addService(op.Service)
+				r.services = append(r.services, op.Service)
 			}
 			r.notifySubscribers(op)
 		case sub := <-r.subscribe:
 			r.subscribers = append(r.subscribers, sub)
 		}
 	}
-}
-
-func (r *serviceRegistry) addService(service *Service) {
-	r.services = append(r.services, service)
 }
 
 func (r *serviceRegistry) notifySubscribers(op Operation) {
