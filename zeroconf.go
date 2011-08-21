@@ -12,8 +12,6 @@ var (
 	Registry = newRegistry()
 )
 
-
-
 func openIPv4Socket() *net.UDPConn {
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{
 		IP:   net.IPv4zero,
@@ -140,6 +138,8 @@ func (r *registry) mainloop() {
 				r.addService(op.Service)
 			}
 			r.notifySubscribers(op)
+		case sub := <- r.subscribe:
+			r.subscribers = append(r.subscribers, sub)
 		}
 	}
 }
