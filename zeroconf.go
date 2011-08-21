@@ -141,32 +141,40 @@ type listener struct {
 func (l *listener) mainloop() {
 	buf := make([]byte, 1500)
 	for {
-		read, err := l.socket.Read(buf)
+		read, _, err := l.socket.ReadFromUDP(buf)
 		if err != nil {
 			log.Fatal(err)
 		}
 		msg := new(dns.Msg)
 		msg.Unpack(buf[:read])
-		s := new(Service)
-		for i := range msg.Answer {
-			switch rr := msg.Answer[i].(type) {
-			case *dns.RR_SRV:
-				x := strings.Split(rr.Hdr.Name, ".")
-				s.Name = x[0]
-				s.Type = strings.Join(x[1:3], ".")
-				s.Domain = strings.Join(x[3:], ".")
-				s.Host = rr.Target
-				s.Port = rr.Port
+		switch msg.MsgHdr.Response {
+		case true:
+			s := new(Service)
+			for i := range msg.Answer {
+				switch rr := msg.Answer[i].(type) {
+				case *dns.RR_SRV:
+					x := strings.Split(rr.Hdr.Name, ".")
+					s.Name = x[0]
+					s.Type = strings.Join(x[1:3], ".")
+					s.Domain = strings.Join(x[3:], ".")
+					s.Host = rr.Target
+					s.Port = rr.Port
 
-			case *dns.RR_TXT:
-				s.Additional = append(s.Additional, strings.Split(rr.Txt, ",")...)
-			default:
-				log.Printf("%#v", rr)
+				case *dns.RR_TXT:
+					s.Additional = append(s.Additional, strings.Split(rr.Txt, ",")...)
+
+				default:
+					log.Printf("%#v", rr)
+				}
 			}
-		}
-		if len(s.Name) > 0 {
-			l.serviceRegistry.AddService(s)
-		}
+			if len(s.Name) > 0 {
+				l.serviceRegistry.AddService(s)
+			}
+		case false:
+			for _, rr := range msg.Question {
+                                        log.Printf("%#v", rr)
+			}
+		}	
 	}
 }
 
@@ -183,7 +191,8 @@ func (s *Service) String() string {
 	return fmt.Sprintf("%s\t%s.%s\t@%s:%d", s.Name, s.Type, s.Domain, s.Host, s.Port)
 }
 
-type Host struct {
-	Addrs []*net.Addr
-	Name  string
+// Publish a service by inserting the record into the registry
+// then sending a query for the record
+func Publish(s *Service) {
+
 }
