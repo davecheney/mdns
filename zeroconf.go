@@ -10,7 +10,14 @@ import (
 )
 
 var (
-	Registry = newRegistry()
+	ServiceRegistry = &serviceRegistry{
+                ops:         make(chan Operation),
+                subscribe:   make(chan subscription),
+                services:    nil,
+                hosts:       nil,
+                subscribers: nil,
+        }
+
 )
 
 func openIPv4Socket() *net.UDPConn {
@@ -25,7 +32,7 @@ func openIPv4Socket() *net.UDPConn {
 }
 
 func init() {
-	go Registry.mainloop()
+	go ServiceRegistry.mainloop()
 
 	socket := openIPv4Socket()
 	if err := socket.JoinGroup(nil, net.IPv4(224, 0, 0, 251)); err != nil {
@@ -34,13 +41,13 @@ func init() {
 
 	listener := &listener{
 		socket:   socket,
-		registry: Registry,
+		serviceRegistry: ServiceRegistry,
 	}
 	go listener.mainloop()
 
 	// simple logger
 	go func() {
-		for op := range Registry.Subscribe() {
+		for op := range ServiceRegistry.Subscribe() {
 			switch op.Op {
 			case Add:
 				log.Printf("Add: %#v", op.Service)
@@ -82,7 +89,7 @@ type Operation struct {
 	Service *Service
 }
 
-type registry struct {
+type serviceRegistry struct {
 	ops         chan Operation
 	subscribe   chan subscription
 	services    []*Service
@@ -90,25 +97,14 @@ type registry struct {
 	subscribers []subscription
 }
 
-// TODO registry is not an exported type, should it be?
-func newRegistry() *registry {
-	return &registry{
-		ops:         make(chan Operation),
-		subscribe:   make(chan subscription),
-		services:    nil,
-		hosts:       nil,
-		subscribers: nil,
-	}
-}
-
-func (r *registry) AddService(service *Service) {
+func (r *serviceRegistry) AddService(service *Service) {
 	r.ops <- Operation{
 		Op:      Add,
 		Service: service,
 	}
 }
 
-func (r *registry) RemoveService(service *Service) {
+func (r *serviceRegistry) RemoveService(service *Service) {
 	r.ops <- Operation{
 		Op:      Remove,
 		Service: service,
@@ -116,13 +112,13 @@ func (r *registry) RemoveService(service *Service) {
 }
 
 // TODO subscribe should take a *Query
-func (r *registry) Subscribe() chan Operation {
+func (r *serviceRegistry) Subscribe() chan Operation {
 	s := make(chan Operation)
 	r.subscribe <- s
 	return s
 }
 
-func (r *registry) mainloop() {
+func (r *serviceRegistry) mainloop() {
 	for {
 		select {
 		case op := <-r.ops:
@@ -137,11 +133,11 @@ func (r *registry) mainloop() {
 	}
 }
 
-func (r *registry) addService(service *Service) {
+func (r *serviceRegistry) addService(service *Service) {
 	r.services = append(r.services, service)
 }
 
-func (r *registry) notifySubscribers(op Operation) {
+func (r *serviceRegistry) notifySubscribers(op Operation) {
 	for i, _ := range r.subscribers {
 		//TODO use non blocking send in case reciever is full
 		r.subscribers[i] <- op
@@ -152,7 +148,7 @@ type subscription chan Operation
 
 type listener struct {
 	socket   *net.UDPConn
-	registry *registry
+	serviceRegistry *serviceRegistry
 }
 
 func (l *listener) mainloop() {
@@ -167,7 +163,7 @@ func (l *listener) mainloop() {
 		s := new(Service)
 		s.unmarshal(msg)
 		if s.valid() {
-			l.registry.AddService(s)
+			l.serviceRegistry.AddService(s)
 		}
 	}
 }
