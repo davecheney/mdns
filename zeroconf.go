@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	dns "github.com/miekg/godns"
 )
@@ -91,11 +92,11 @@ type registry struct {
 // TODO registry is not an exported type, should it be?
 func newRegistry() *registry {
 	return &registry{
-                ops:         make(chan Operation),
-		subscribe:	make(chan *subscription),
-                services:    nil,
-                subscribers: nil,
-        }
+		ops:         make(chan Operation),
+		subscribe:   make(chan *subscription),
+		services:    nil,
+		subscribers: nil,
+	}
 }
 
 func (r *registry) Add(service *Service) {
@@ -114,7 +115,7 @@ func (r *registry) Remove(service *Service) {
 
 // TODO subscribe should take a *Query
 func (r *registry) Subscribe() chan Operation {
-	s := &subscription {
+	s := &subscription{
 		make(chan Operation),
 	}
 	r.subscribe <- s
@@ -130,7 +131,7 @@ func (r *registry) mainloop() {
 				r.addService(op.Service)
 			}
 			r.notifySubscribers(op)
-		case sub := <- r.subscribe:
+		case sub := <-r.subscribe:
 			r.subscribers = append(r.subscribers, sub)
 		}
 	}
@@ -172,6 +173,44 @@ func (l *listener) mainloop() {
 		s.unmarshal(msg)
 		if s.valid() {
 			l.registry.Add(s)
+		}
+	}
+}
+
+type Service struct {
+	Type       string
+	Name       string
+	Domain     string
+	Interface  *net.Interface
+	Host       Host
+	Additional []string
+}
+
+type Host struct {
+	Name string
+	Port uint16
+}
+
+// s.unmarshal may not be complete, return false if so
+func (s *Service) valid() bool {
+	return len(s.Name) > 0
+}
+
+func (s *Service) unmarshal(msg *dns.Msg) {
+	for i := range msg.Answer {
+		switch rr := msg.Answer[i].(type) {
+		case *dns.RR_SRV:
+			x := strings.Split(rr.Hdr.Name, ".")
+			s.Name = x[0]
+			s.Type = strings.Join(x[1:3], ".")
+			s.Domain = strings.Join(x[3:], ".")
+			s.Host.Name = rr.Target
+			s.Host.Port = rr.Port
+
+		case *dns.RR_TXT:
+			s.Additional = append(s.Additional, strings.Split(rr.Txt, ",")...)
+		default:
+			log.Printf("%#v", rr)
 		}
 	}
 }
