@@ -69,14 +69,6 @@ func isMulticast(i net.Interface) bool {
 	return (i.Flags&net.FlagUp > 0) && (i.Flags&net.FlagMulticast > 0)
 }
 
-type Service struct {
-	Type      string
-	Name      string
-	Domain    string
-	Interface *net.Interface
-	Address   net.Addr
-}
-
 type op int
 
 const (
@@ -169,22 +161,16 @@ type listener struct {
 
 func (l *listener) mainloop() {
 	buf := make([]byte, 1500)
-	var msg dns.Msg // TODO should the be reused ?
 	for {
 		read, err := l.socket.Read(buf)
 		if err != nil {
 			log.Fatal(err)
 		}
+		msg := new(dns.Msg)
 		msg.Unpack(buf[:read])
-		if msg.Response {
-			s := new(Service)
-			for _, rr := range msg.Answer {
-				log.Printf("%#v", rr)
-				switch r := rr.(type) {
-				case *dns.RR_SRV:
-					
-				}
-			}
+		s := new(Service)
+		s.unmarshal(msg)
+		if s.valid() {
 			l.registry.Add(s)
 		}
 	}
