@@ -10,9 +10,9 @@ import (
 
 var (
 	Registry = &registry{
-		add:    make(chan *Service),
-		remove: make(chan *Service),
-		services: make([]*Service,0),
+		ops:    make(chan Operation),
+		services: nil,
+		subscribers: nil,
 	}
 )
 
@@ -69,22 +69,68 @@ type Service struct {
 	Address   net.Addr
 }
 
+type op int 
+
+const (
+	Add op = 1
+	Remove op = 2
+)
+
+type Operation struct {
+	Op op
+	Service *Service
+}
+
+
 type registry struct {
-	add, remove chan *Service
+	ops chan Operation
 	services []*Service
+	subscribers []*subscription
 }
 
 func (r *registry) Add(service *Service) {
-	r.add <- service
+	r.ops <- Operation{ 
+		Op: Add,
+		Service: service,
+	}
+}
+
+func (r *registry) Remove(service *Service) {
+	r.ops <- Operation{
+		Op: Remove,
+		Service: service,
+	}
 }
 
 func (r *registry) mainloop() {
 	for {
 		select {
-		case s := <- r.add:
-			r.services = append(r.services, s)
+		case op := <- r.ops:
+			switch op.Op {
+			case Add:
+				r.addService(op.Service)
+			}
+			r.notifySubscribers(op)
 		}
 	}
+}
+
+func (r *registry) addService(service *Service) {
+	r.services = append(r.services, service)
+}
+
+func (r *registry) notifySubscribers(op Operation) {
+	for i, _ := range r.subscribers {
+		r.subscribers[i].notify(op)
+	}
+}	
+
+type subscription struct {
+	c chan Operation
+}
+
+func (s *subscription) notify(op Operation) {
+	s.c <- op // TODO use non blocking send in case reciver is full
 }
 
 type listener struct {
@@ -94,13 +140,17 @@ type listener struct {
 
 func (l *listener) mainloop() {
 	buf := make([]byte, 1500)
+	var msg dns.Msg // TODO should the be reused ?
 	for {
 		read, err := l.socket.Read(buf)
 		if err != nil {
 			log.Fatal(err)
 		}
-		msg := &dns.Msg{}
 		msg.Unpack(buf[:read])
-		log.Println(msg.String())
+		if msg.Response {
+			for _, rr := range msg.Answer {
+				log.Printf("%#v", rr)
+			}
+		}
 	}
 }
