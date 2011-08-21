@@ -84,19 +84,19 @@ type Operation struct {
 
 type registry struct {
 	ops         chan Operation
-	subscribe   chan *subscription
+	subscribe   chan subscription
 	services    []*Service
-	hosts	 []*Host
-	subscribers []*subscription
+	hosts       []*Host
+	subscribers []subscription
 }
 
 // TODO registry is not an exported type, should it be?
 func newRegistry() *registry {
 	return &registry{
 		ops:         make(chan Operation),
-		subscribe:   make(chan *subscription),
+		subscribe:   make(chan subscription),
 		services:    nil,
-		hosts:	nil,
+		hosts:       nil,
 		subscribers: nil,
 	}
 }
@@ -117,11 +117,9 @@ func (r *registry) RemoveService(service *Service) {
 
 // TODO subscribe should take a *Query
 func (r *registry) Subscribe() chan Operation {
-	s := &subscription{
-		make(chan Operation),
-	}
+	s := make(chan Operation)
 	r.subscribe <- s
-	return s.c
+	return s
 }
 
 func (r *registry) mainloop() {
@@ -145,17 +143,12 @@ func (r *registry) addService(service *Service) {
 
 func (r *registry) notifySubscribers(op Operation) {
 	for i, _ := range r.subscribers {
-		r.subscribers[i].notify(op)
+		//TODO use non blocking send in case reciever is full
+		r.subscribers[i] <- op
 	}
 }
 
-type subscription struct {
-	c chan Operation
-}
-
-func (s *subscription) notify(op Operation) {
-	s.c <- op // TODO use non blocking send in case reciver is full
-}
+type subscription chan Operation
 
 type listener struct {
 	socket   *net.UDPConn
@@ -184,7 +177,7 @@ type Service struct {
 	Name       string
 	Domain     string
 	Host       string
-	Port		uint16
+	Port       uint16
 	Additional []string
 }
 
@@ -214,5 +207,5 @@ func (s *Service) unmarshal(msg *dns.Msg) {
 
 type Host struct {
 	Addrs []*net.Addr
-	Name string
+	Name  string
 }
