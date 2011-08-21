@@ -86,6 +86,7 @@ type registry struct {
 	ops         chan Operation
 	subscribe   chan *subscription
 	services    []*Service
+	hosts	 []*Host
 	subscribers []*subscription
 }
 
@@ -95,18 +96,19 @@ func newRegistry() *registry {
 		ops:         make(chan Operation),
 		subscribe:   make(chan *subscription),
 		services:    nil,
+		hosts:	nil,
 		subscribers: nil,
 	}
 }
 
-func (r *registry) Add(service *Service) {
+func (r *registry) AddService(service *Service) {
 	r.ops <- Operation{
 		Op:      Add,
 		Service: service,
 	}
 }
 
-func (r *registry) Remove(service *Service) {
+func (r *registry) RemoveService(service *Service) {
 	r.ops <- Operation{
 		Op:      Remove,
 		Service: service,
@@ -172,7 +174,7 @@ func (l *listener) mainloop() {
 		s := new(Service)
 		s.unmarshal(msg)
 		if s.valid() {
-			l.registry.Add(s)
+			l.registry.AddService(s)
 		}
 	}
 }
@@ -181,14 +183,9 @@ type Service struct {
 	Type       string
 	Name       string
 	Domain     string
-	Interface  *net.Interface
-	Host       Host
+	Host       string
+	Port		uint16
 	Additional []string
-}
-
-type Host struct {
-	Name string
-	Port uint16
 }
 
 // s.unmarshal may not be complete, return false if so
@@ -204,8 +201,8 @@ func (s *Service) unmarshal(msg *dns.Msg) {
 			s.Name = x[0]
 			s.Type = strings.Join(x[1:3], ".")
 			s.Domain = strings.Join(x[3:], ".")
-			s.Host.Name = rr.Target
-			s.Host.Port = rr.Port
+			s.Host = rr.Target
+			s.Port = rr.Port
 
 		case *dns.RR_TXT:
 			s.Additional = append(s.Additional, strings.Split(rr.Txt, ",")...)
@@ -213,4 +210,9 @@ func (s *Service) unmarshal(msg *dns.Msg) {
 			log.Printf("%#v", rr)
 		}
 	}
+}
+
+type Host struct {
+	Addrs []*net.Addr
+	Name string
 }
