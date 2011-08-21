@@ -7,5 +7,5 @@ import (
 
 // rubbish unit test, but good func test runner
 func TestListenZeroconf(t *testing.T) {
-	<- time.After(10e10)
-}	
+	<-time.After(10e10)
+}

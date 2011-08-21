@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"log"
 	"net"
-	
+
 	dns "github.com/miekg/godns"
 )
 
 var (
 	Registry = &registry{
-		ops:    make(chan Operation),
-		services: nil,
+		ops:         make(chan Operation),
+		services:    nil,
 		subscribers: nil,
 	}
 )
@@ -23,20 +23,20 @@ func openIPv4Socket() *net.UDPConn {
 	})
 	if err != nil {
 		log.Fatal(err)
-	}	
+	}
 	return conn
 }
 
 func init() {
 	go Registry.mainloop()
 
-	socket := openIPv4Socket()	
+	socket := openIPv4Socket()
 	if err := socket.JoinGroup(nil, net.IPv4(224, 0, 0, 251)); err != nil {
 		log.Fatal(err)
 	}
 
-	listener := &listener {
-		socket: socket,
+	listener := &listener{
+		socket:   socket,
 		registry: Registry,
 	}
 	go listener.mainloop()
@@ -58,7 +58,7 @@ func mcastInterfaces() []net.Interface {
 }
 
 func isMulticast(i net.Interface) bool {
-	return (i.Flags & net.FlagUp > 0) && (i.Flags & net.FlagMulticast > 0)
+	return (i.Flags&net.FlagUp > 0) && (i.Flags&net.FlagMulticast > 0)
 }
 
 type Service struct {
@@ -69,35 +69,34 @@ type Service struct {
 	Address   net.Addr
 }
 
-type op int 
+type op int
 
 const (
-	Add op = 1
+	Add    op = 1
 	Remove op = 2
 )
 
 type Operation struct {
-	Op op
+	Op      op
 	Service *Service
 }
 
-
 type registry struct {
-	ops chan Operation
-	services []*Service
+	ops         chan Operation
+	services    []*Service
 	subscribers []*subscription
 }
 
 func (r *registry) Add(service *Service) {
-	r.ops <- Operation{ 
-		Op: Add,
+	r.ops <- Operation{
+		Op:      Add,
 		Service: service,
 	}
 }
 
 func (r *registry) Remove(service *Service) {
 	r.ops <- Operation{
-		Op: Remove,
+		Op:      Remove,
 		Service: service,
 	}
 }
@@ -105,7 +104,7 @@ func (r *registry) Remove(service *Service) {
 func (r *registry) mainloop() {
 	for {
 		select {
-		case op := <- r.ops:
+		case op := <-r.ops:
 			switch op.Op {
 			case Add:
 				r.addService(op.Service)
@@ -123,7 +122,7 @@ func (r *registry) notifySubscribers(op Operation) {
 	for i, _ := range r.subscribers {
 		r.subscribers[i].notify(op)
 	}
-}	
+}
 
 type subscription struct {
 	c chan Operation
@@ -134,9 +133,9 @@ func (s *subscription) notify(op Operation) {
 }
 
 type listener struct {
-	socket *net.UDPConn
+	socket   *net.UDPConn
 	registry *registry
-}	
+}
 
 func (l *listener) mainloop() {
 	buf := make([]byte, 1500)
