@@ -17,37 +17,6 @@ var (
 
 func init() {
 	go ServiceRegistry.mainloop()
-
-	// simple logger
-	go func() {
-		for op := range ServiceRegistry.Subscribe() {
-			switch op.Op {
-			case Add:
-				log.Print("Add: ", op.Service)
-			case Remove:
-				log.Print("Remove: ", op.Service)
-			}
-		}
-	}()
-}
-
-func mcastInterfaces() []net.Interface {
-	ifaces := make([]net.Interface, 0)
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, i := range interfaces {
-		if isMulticast(i) {
-			fmt.Printf("%#v\n", i)
-			ifaces = append(ifaces, i)
-		}
-	}
-	return ifaces
-}
-
-func isMulticast(i net.Interface) bool {
-	return (i.Flags&net.FlagUp > 0) && (i.Flags&net.FlagMulticast > 0)
 }
 
 type op int

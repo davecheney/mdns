@@ -31,6 +31,25 @@ func openIPv4Socket(ip net.IP) *net.UDPConn {
         return conn
 }
 
+func mcastInterfaces() []net.Interface {
+        ifaces := make([]net.Interface, 0)
+        interfaces, err := net.Interfaces()
+        if err != nil {
+                log.Fatal(err)
+        }
+        for _, i := range interfaces {
+                if isMulticast(i) {
+                        fmt.Printf("%#v\n", i)
+                        ifaces = append(ifaces, i)
+                }
+        }
+        return ifaces
+}
+
+func isMulticast(i net.Interface) bool {
+        return (i.Flags&net.FlagUp > 0) && (i.Flags&net.FlagMulticast > 0)
+}
+
 type listener struct {
 	socket          *net.UDPConn
 	zone	*Zone
