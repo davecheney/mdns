@@ -2,8 +2,6 @@ package zeroconf
 
 import (
 	"fmt"
-	"log"
-	"net"
 )
 
 var (
