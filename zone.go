@@ -6,14 +6,6 @@ import (
 	dns "github.com/miekg/godns"
 )
 
-var (
-	Local = NewZone("local.")
-)
-
-func init() {
-	go Local.mainloop()
-}
-
 type Entry struct {
 	expires int  // the timestamp when this record will expire
 	publish bool // whether this entry should be broadcast in response to an mDNS question

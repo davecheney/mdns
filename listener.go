@@ -8,17 +8,17 @@ import (
 	dns "github.com/miekg/godns"
 )
 
-func init() {
-	listener := &listener{
-		socket: openIPv4Socket(net.IPv4zero),
-		zone:   Local,
-	}
+func Listen(zone *Zone) {
+        listener := &listener{
+                socket: openIPv4Socket(net.IPv4zero),
+                zone:   zone,
+        }
 
-	if err := listener.socket.JoinGroup(nil, net.IPv4(224, 0, 0, 251)); err != nil {
-		log.Fatal(err)
-	}
+        if err := listener.socket.JoinGroup(nil, net.IPv4(224, 0, 0, 251)); err != nil {
+                log.Fatal(err)
+        }
 
-	go listener.mainloop()
+        go listener.mainloop()
 }
 
 func openIPv4Socket(ip net.IP) *net.UDPConn {
