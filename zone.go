@@ -7,12 +7,7 @@ import (
 )
 
 var (
-	Local = &Zone{
-		Domain:    "local.",
-		entries:   make(map[string]entries),
-		additions: make(chan *Entry),
-		questions: make(chan *query),
-	}
+	Local = NewZone("local.")
 )
 
 func init() {
@@ -43,8 +38,16 @@ type Zone struct {
 	questions chan *query
 }
 
+func NewZone(domain string) *Zone {
+	return &Zone{
+                Domain:    domain,
+                entries:   make(map[string]entries),
+                additions: make(chan *Entry, 16),
+                questions: make(chan *query, 16),
+        }
+}
+
 func (z *Zone) Add(entry *Entry) {
-	log.Printf("Add: %#v", entry)
 	z.additions <- entry
 }
 
@@ -67,11 +70,11 @@ func (z *Zone) mainloop() {
 
 func (z *Zone) add(entry *Entry) {
 	z.entries[entry.fqdn()] = append(z.entries[entry.fqdn()], entry)
-	log.Printf("%#v", entry)
+	log.Printf("Add: %s %#v", entry.fqdn(), entry)
 }
 
 func (z *Zone) query(query *query) {
-
+	log.Printf("Query: %#v", query)
 }
 
 func Publish(rr dns.RR) {

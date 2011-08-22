@@ -59,7 +59,7 @@ type listener struct {
 func (l *listener) mainloop() {
 	buf := make([]byte, 1500)
 	for {
-		read, _, err := l.socket.ReadFromUDP(buf[:])
+		read, _, err := l.socket.ReadFromUDP(buf)
 		if err != nil {
 			log.Fatal(err)
 		}
