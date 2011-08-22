@@ -4,21 +4,22 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	dns "github.com/miekg/godns"
 )
 
 func Listen(zone *Zone) *listener {
-        listener := &listener{
-                socket: openIPv4Socket(net.IPv4zero),
-                zone:   zone,
-        }
+	listener := &listener{
+		socket: openIPv4Socket(net.IPv4zero),
+		zone:   zone,
+	}
 
-        if err := listener.socket.JoinGroup(nil, net.IPv4(224, 0, 0, 251)); err != nil {
-                log.Fatal(err)
-        }
+	if err := listener.socket.JoinGroup(nil, net.IPv4(224, 0, 0, 251)); err != nil {
+		log.Fatal(err)
+	}
 
-        go listener.mainloop()
+	go listener.mainloop()
 	return listener
 }
 
@@ -58,14 +59,11 @@ type listener struct {
 }
 
 func (l *listener) mainloop() {
-	buf := make([]byte, 1500)
 	for {
-		read, _, err := l.socket.ReadFromUDP(buf)
+		msg, err := l.readMessage()
 		if err != nil {
 			log.Fatal(err)
 		}
-		msg := new(dns.Msg)
-		msg.Unpack(buf[:read])
 		if msg.IsQuestion() {
 			var answers []dns.RR
 			for _, question := range msg.Question {
@@ -89,14 +87,24 @@ func (l *listener) mainloop() {
 }
 
 func (l *listener) SendResponse(answers []dns.RR) {
-	response := &dns.Msg {
+	response := &dns.Msg{
 		MsgHdr: dns.MsgHdr{
 			Response: true,
-		}, 
+		},
 		Answer: answers,
 	}
-  	if buf, ok := response.Pack() ; ok {
-       		l.socket.Write(buf) 
-        }
+	if buf, ok := response.Pack(); ok {
+		l.socket.Write(buf)
+	}
 }
 
+func (l *listener) readMessage() (*dns.Msg, os.Error) {
+	buf := make([]byte, 1500)
+	read, err := l.socket.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	msg := new(dns.Msg)
+	msg.Unpack(buf[:read])
+	return msg, nil
+}

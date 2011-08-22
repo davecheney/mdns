@@ -5,19 +5,18 @@ import (
 )
 
 var (
-        Local = NewZone("local.")
+	Local    = NewZone("local.")
 	Listener = Listen(Local) // start mcast listner
 )
 
 func init() {
-        go Local.mainloop()
+	go Local.mainloop()
 }
 
 func Publish(rr dns.RR) {
-        Local.Add(&Entry{
-                expires: 2 ^ 31, // never
-                publish: true,
-                rr:      rr,
-        })
+	Local.Add(&Entry{
+		expires: 2 ^ 31, // never
+		publish: true,
+		rr:      rr,
+	})
 }
-

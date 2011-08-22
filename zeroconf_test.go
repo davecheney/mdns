@@ -3,7 +3,7 @@ package zeroconf
 import (
 	"testing"
 	"time"
-	
+
 	dns "github.com/miekg/godns"
 )
 
@@ -15,6 +15,6 @@ func TestPublish(t *testing.T) {
 	service.Port = 80
 	service.Target = "lucky.local"
 	Publish(service)
-	
+
 	<-time.After(60e9)
 }
