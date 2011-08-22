@@ -8,12 +8,12 @@ import (
 )
 
 func TestPublish(t *testing.T) {
-	host := dns.NewRR(dns.TypeA)
-	host.Header().Name = "host.local."
-	Publish(host)
-
-	service := dns.NewRR(dns.TypeSRV)
+	service := dns.NewRR(dns.TypeSRV).(*dns.RR_SRV)
 	service.Header().Name = "host._http._tcp.local."
+	service.Priority = 10
+	service.Weight = 10
+	service.Port = 80
+	service.Target = "lucky.local"
 	Publish(service)
 	
 	<-time.After(60e9)

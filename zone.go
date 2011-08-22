@@ -72,11 +72,3 @@ func (z *Zone) query(query *query) {
 	close(query.response)
 	log.Printf("Query: %#v", query)
 }
-
-func Publish(rr dns.RR) {
-	Local.Add(&Entry{
-		expires: 2 ^ 31, // never
-		publish: true,
-		rr:      rr,
-	})
-}

@@ -8,7 +8,7 @@ import (
 	dns "github.com/miekg/godns"
 )
 
-func Listen(zone *Zone) {
+func Listen(zone *Zone) *listener {
         listener := &listener{
                 socket: openIPv4Socket(net.IPv4zero),
                 zone:   zone,
@@ -19,6 +19,7 @@ func Listen(zone *Zone) {
         }
 
         go listener.mainloop()
+	return listener
 }
 
 func openIPv4Socket(ip net.IP) *net.UDPConn {
@@ -66,20 +67,15 @@ func (l *listener) mainloop() {
 		msg := new(dns.Msg)
 		msg.Unpack(buf[:read])
 		if isQuestion(msg) {
-			response := new(dns.Msg)
+			var answers []dns.RR
 			for _, question := range msg.Question {
 				for result := range l.zone.Query(question) {
 					if result.publish {
-						response.Answer = append(response.Answer, result.rr)
+						answers = append(answers, result.rr)
 					}
 				}
 			}
-			if len(response.Answer) > 0 {
-				response.MsgHdr.Response = true
-				if buf, ok := response.Pack() ; ok {
-					l.socket.Write(buf) 
-				}
-			}
+			l.SendResponse(answers)
 		} else {
 			for _, rr := range msg.Answer {
 				l.zone.Add(&Entry{
@@ -91,6 +87,19 @@ func (l *listener) mainloop() {
 		}
 	}
 }
+
+func (l *listener) SendResponse(answers []dns.RR) {
+	response := &dns.Msg {
+		MsgHdr: dns.MsgHdr{
+			Response: true,
+		}, 
+		Answer: answers,
+	}
+  	if buf, ok := response.Pack() ; ok {
+       		l.socket.Write(buf) 
+        }
+}
+
 
 func isQuestion(msg *dns.Msg) bool {
 	return !msg.MsgHdr.Response
