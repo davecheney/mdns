@@ -66,11 +66,18 @@ func (l *listener) mainloop() {
 		msg := new(dns.Msg)
 		msg.Unpack(buf[:read])
 		if isQuestion(msg) {
+			response := new(dns.Msg)
 			for _, question := range msg.Question {
 				for result := range l.zone.Query(question) {
 					if result.publish {
-
+						response.Answer = append(response.Answer, result.rr)
 					}
+				}
+			}
+			if len(response.Answer) > 0 {
+				response.MsgHdr.Response = true
+				if buf, ok := response.Pack() ; ok {
+					l.socket.Write(buf) 
 				}
 			}
 		} else {

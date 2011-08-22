@@ -74,6 +74,10 @@ func (z *Zone) add(entry *Entry) {
 }
 
 func (z *Zone) query(query *query) {
+	for _, entry := range z.entries[query.question.Name] {
+		query.response <- entry
+	}
+	close(query.response)
 	log.Printf("Query: %#v", query)
 }
 
