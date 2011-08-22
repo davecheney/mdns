@@ -66,7 +66,7 @@ func (l *listener) mainloop() {
 		}
 		msg := new(dns.Msg)
 		msg.Unpack(buf[:read])
-		if isQuestion(msg) {
+		if msg.IsQuestion() {
 			var answers []dns.RR
 			for _, question := range msg.Question {
 				for result := range l.zone.Query(question) {
@@ -100,7 +100,3 @@ func (l *listener) SendResponse(answers []dns.RR) {
         }
 }
 
-
-func isQuestion(msg *dns.Msg) bool {
-	return !msg.MsgHdr.Response
-}
