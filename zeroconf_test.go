@@ -13,7 +13,7 @@ var (
 
 func TestPublish(t *testing.T) {
 	m := new(dns.Msg)
-	m.SetQuestion("_afpovertcp._tcp.local.", dns.TypeANY)
+	m.SetQuestion("_ssh._tcp.local.", dns.TypeANY)
 	LOCAL.listener.writeMessage(m)
 
 	<-time.After(60e9)

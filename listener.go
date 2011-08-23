@@ -16,25 +16,28 @@ const (
 
 var (
 	IPv4MCASTADDR = &net.UDPAddr{
-		IP:   net.IPv4(224, 0, 0, 251),
+		IP:   net.ParseIP("224.0.0.251"),
+		Port: 5353,
+	}
+
+	IPv6MCASTADDR = &net.UDPAddr{
+		IP: net.ParseIP("ff02::fb"),
 		Port: 5353,
 	}
 )
 
-func listen(zone *Zone) *listener {
+func listen(zone *Zone) (*listener, os.Error) {
 	listener := &listener{
-		socket: openIPv4Socket(net.IPv4zero),
+		socket: openSocket(net.IPv4zero),
 		zone:   zone,
 	}
-
 	if err := listener.socket.JoinGroup(nil, IPv4MCASTADDR.IP); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-
-	return listener
+	return listener, nil
 }
 
-func openIPv4Socket(ip net.IP) *net.UDPConn {
+func openSocket(ip net.IP) *net.UDPConn {
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{
 		IP:   ip,
 		Port: IPv4MCASTADDR.Port,
@@ -111,7 +114,6 @@ func (l *listener) SendResponse(answers []dns.RR) {
 func (l *listener) writeMessage(msg *dns.Msg) (err os.Error) {
 	if buf, ok := msg.Pack(); ok {
 		_, err = l.socket.WriteToUDP(buf, IPv4MCASTADDR)
-
 	}
 	return
 }

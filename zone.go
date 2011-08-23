@@ -2,6 +2,7 @@ package zeroconf
 
 import (
 	"log"
+	"os"
 
 	dns "github.com/miekg/godns"
 )
@@ -38,7 +39,10 @@ func NewLocalZone() *Zone {
 		additions: make(chan *Entry, 16),
 		questions: make(chan *query, 16),
 	}
-	z.listener = listen(z)
+	var err os.Error
+	if z.listener, err = listen(z) ; err != nil {
+		log.Fatal(err)
+	}	
 	go z.mainloop()
 	go z.listener.mainloop()
 	return z
