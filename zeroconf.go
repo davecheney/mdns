@@ -9,10 +9,6 @@ var (
 	Listener = Listen(Local) // start mcast listner
 )
 
-func init() {
-	go Local.mainloop()
-}
-
 func Publish(rr dns.RR) {
 	Local.Add(&Entry{
 		expires: 2 << 29, // never

@@ -31,12 +31,14 @@ type Zone struct {
 }
 
 func NewZone(domain string) *Zone {
-	return &Zone{
+	z := &Zone{
 		Domain:    domain,
 		entries:   make(map[string]entries),
 		additions: make(chan *Entry, 16),
 		questions: make(chan *query, 16),
 	}
+	go z.mainloop()
+	return z
 }
 
 func (z *Zone) Add(entry *Entry) {
