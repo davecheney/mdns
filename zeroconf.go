@@ -15,7 +15,7 @@ func init() {
 
 func Publish(rr dns.RR) {
 	Local.Add(&Entry{
-		expires: 2 ^ 31, // never
+		expires: 2 << 29, // never
 		publish: true,
 		rr:      rr,
 	})

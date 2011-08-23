@@ -8,13 +8,9 @@ import (
 )
 
 func TestPublish(t *testing.T) {
-	service := dns.NewRR(dns.TypeSRV).(*dns.RR_SRV)
-	service.Header().Name = "host._http._tcp.local."
-	service.Priority = 10
-	service.Weight = 10
-	service.Port = 80
-	service.Target = "lucky.local"
-	Publish(service)
+	m := new(dns.Msg)
+	m.SetQuestion("_afpovertcp._tcp.local.", dns.TypeANY)
+	Listener.writeMessage(m)
 
 	<-time.After(60e9)
 }

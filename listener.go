@@ -9,13 +9,20 @@ import (
 	dns "github.com/miekg/godns"
 )
 
+var (
+	IPv4MCASTADDR = &net.UDPAddr{
+		IP:   net.IPv4(224, 0, 0, 251),
+		Port: 5353,
+	}
+)
+
 func Listen(zone *Zone) *listener {
 	listener := &listener{
 		socket: openIPv4Socket(net.IPv4zero),
 		zone:   zone,
 	}
 
-	if err := listener.socket.JoinGroup(nil, net.IPv4(224, 0, 0, 251)); err != nil {
+	if err := listener.socket.JoinGroup(nil, IPv4MCASTADDR.IP); err != nil {
 		log.Fatal(err)
 	}
 
@@ -26,7 +33,7 @@ func Listen(zone *Zone) *listener {
 func openIPv4Socket(ip net.IP) *net.UDPConn {
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{
 		IP:   ip,
-		Port: 5353,
+		Port: IPv4MCASTADDR.Port,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -93,9 +100,17 @@ func (l *listener) SendResponse(answers []dns.RR) {
 		},
 		Answer: answers,
 	}
-	if buf, ok := response.Pack(); ok {
-		l.socket.Write(buf)
+	if err := l.writeMessage(response); err != nil {
+		log.Fatal(err)
 	}
+}
+
+func (l *listener) writeMessage(msg *dns.Msg) (err os.Error) {
+	if buf, ok := msg.Pack(); ok {
+		_, err = l.socket.WriteToUDP(buf, IPv4MCASTADDR)
+
+	}
+	return
 }
 
 func (l *listener) readMessage() (*dns.Msg, os.Error) {
@@ -105,6 +120,9 @@ func (l *listener) readMessage() (*dns.Msg, os.Error) {
 		return nil, err
 	}
 	msg := new(dns.Msg)
-	msg.Unpack(buf[:read])
-	return msg, nil
+	if msg.Unpack(buf[:read]) {
+		return msg, nil
+	}
+	return nil, os.NewError("Unable to unpack buffer")
+
 }
