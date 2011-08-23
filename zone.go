@@ -7,8 +7,8 @@ import (
 )
 
 type Entry struct {
-	expires int  // the timestamp when this record will expire
-	publish bool // whether this entry should be broadcast in response to an mDNS question
+	expires int64 // the timestamp when this record will expire in nanoseconds
+	publish bool  // whether this entry should be broadcast in response to an mDNS question
 	rr      dns.RR
 }
 
