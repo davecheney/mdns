@@ -99,14 +99,13 @@ func (l *listener) mainloop() {
 }
 
 func (l *listener) SendResponse(answers []dns.RR) {
-	response := &dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Response: true,
-		},
-		Answer: answers,
-	}
-	if err := l.writeMessage(response); err != nil {
-		log.Fatal(err)
+	if len(answers) > 0 {
+		msg := new(dns.Msg)
+		msg.MsgHdr.Response = true
+		msg.Answer = answers
+		if err := l.writeMessage(msg); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
