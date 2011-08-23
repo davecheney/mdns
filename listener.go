@@ -21,7 +21,7 @@ var (
 	}
 )
 
-func Listen(zone *Zone) *listener {
+func listen(zone *Zone) *listener {
 	listener := &listener{
 		socket: openIPv4Socket(net.IPv4zero),
 		zone:   zone,
@@ -31,7 +31,6 @@ func Listen(zone *Zone) *listener {
 		log.Fatal(err)
 	}
 
-	go listener.mainloop()
 	return listener
 }
 

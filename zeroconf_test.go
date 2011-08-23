@@ -7,10 +7,14 @@ import (
 	dns "github.com/miekg/godns"
 )
 
+var (
+	LOCAL = NewLocalZone()
+)
+
 func TestPublish(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("_afpovertcp._tcp.local.", dns.TypeANY)
-	Listener.writeMessage(m)
+	LOCAL.listener.writeMessage(m)
 
 	<-time.After(60e9)
 }

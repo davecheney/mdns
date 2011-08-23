@@ -28,16 +28,19 @@ type Zone struct {
 	entries   map[string]entries
 	additions chan *Entry
 	questions chan *query
+	listener  *listener
 }
 
-func NewZone(domain string) *Zone {
+func NewLocalZone() *Zone {
 	z := &Zone{
-		Domain:    domain,
+		Domain:    "local.",
 		entries:   make(map[string]entries),
 		additions: make(chan *Entry, 16),
 		questions: make(chan *query, 16),
 	}
+	z.listener = listen(z)
 	go z.mainloop()
+	go z.listener.mainloop()
 	return z
 }
 
