@@ -5,8 +5,13 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	dns "github.com/miekg/godns"
+)
+
+const (
+	seconds = 1e9
 )
 
 var (
@@ -84,7 +89,7 @@ func (l *listener) mainloop() {
 		} else {
 			for _, rr := range msg.Answer {
 				l.zone.Add(&Entry{
-					expires: 2 ^ 31,
+					expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
 					publish: false,
 					rr:      rr,
 				})
