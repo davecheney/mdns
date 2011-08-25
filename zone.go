@@ -2,24 +2,24 @@ package zeroconf
 
 import (
 	"log"
-	"os"
+	"net"
 
 	dns "github.com/miekg/godns"
 )
 
 type Entry struct {
-	expires int64 // the timestamp when this record will expire in nanoseconds
-	publish bool  // whether this entry should be broadcast in response to an mDNS question
-	rr      dns.RR
+	Expires int64 // the timestamp when this record will expire in nanoseconds
+	Publish bool  // whether this entry should be broadcast in response to an mDNS question
+	RR      dns.RR
 }
 
 func (e *Entry) fqdn() string {
-	return e.rr.Header().Name
+	return e.RR.Header().Name
 }
 
 type Query struct {
 	Question dns.Question
-	Results chan *Entry
+	Result chan *Entry
 }
 
 type entries []*Entry
@@ -29,29 +29,19 @@ type Zone struct {
 	entries   map[string]entries
 	Add chan *Entry
 	Query chan *Query
-	conn  	chan *dns.Msg
 }
 
 func NewLocalZone() *Zone {
+	add, query := make(chan *Entry, 16), make(chan *Query, 16)
 	z := &Zone{
 		Domain:    "local.",
 		entries:   make(map[string]entries),
-		Add: make(chan *Entry, 16),
-		Query: make(chan *Query, 16),
+		Add: add,
+		Query: query,
 	}
-	var err os.Error
-	if z.listener, err = listen(z.Add) ; err != nil {
-		log.Fatal(err)
-	}	
 	go z.mainloop()
-	go z.listener.mainloop()
+	listen(openSocket(net.IPv4zero), add, query)
 	return z
-}
-
-func (z *Zone) Query(q dns.Question) <-chan *Entry {
-	query := &query{q, make(chan *Entry)}
-	z.questions <- query
-	return query.response
 }
 
 func (z *Zone) mainloop() {
@@ -59,7 +49,7 @@ func (z *Zone) mainloop() {
 		select {
 		case entry := <-z.Add:
 			z.add(entry)
-		case q := <-z.questions:
+		case q := <-z.Query:
 			z.query(q)
 		}
 	}
@@ -70,10 +60,10 @@ func (z *Zone) add(entry *Entry) {
 	log.Printf("Add: %s %#v", entry.fqdn(), entry)
 }
 
-func (z *Zone) query(query *query) {
-	for _, entry := range z.entries[query.question.Name] {
-		query.response <- entry
+func (z *Zone) query(query *Query) {
+	for _, entry := range z.entries[query.Question.Name] {
+		query.Result <- entry
 	}
-	close(query.response)
+	close(query.Result)
 	log.Printf("Query: %#v", query)
 }

@@ -26,16 +26,25 @@ var (
 	}
 )
 
-func listen(zone chan *Entry) (*listener, os.Error) {
-	listener := &listener{
-		socket: openSocket(net.IPv4zero),
-		zone:   zone,
-	}
-	if err := listener.socket.JoinGroup(nil, IPv4MCASTADDR.IP); err != nil {
-		return nil, err
-	}
-	return listener, nil
+type listener struct {
+        conn *net.UDPConn
+        add   chan *Entry
+	query	chan *Query
 }
+
+func listen(conn *net.UDPConn, add chan *Entry, query chan *Query) os.Error {
+	if err := conn.JoinGroup(nil, IPv4MCASTADDR.IP); err != nil {
+		return err
+	}
+	l := listener{
+                conn: conn,
+                add:   add,
+		query: query,
+        }
+	go l.mainloop()
+	return nil
+}
+
 
 func openSocket(ip net.IP) *net.UDPConn {
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{
@@ -67,11 +76,6 @@ func isMulticast(i net.Interface) bool {
 	return (i.Flags&net.FlagUp > 0) && (i.Flags&net.FlagMulticast > 0)
 }
 
-type listener struct {
-	socket *net.UDPConn
-	zone   chan *Entry
-}
-
 func (l *listener) mainloop() {
 	for {
 		msg, err := l.readMessage()
@@ -80,22 +84,22 @@ func (l *listener) mainloop() {
 		}
 		if msg.IsQuestion() {
 			var answers []dns.RR
-			var results = make(chan *Entry, 16)
 			for _, question := range msg.Question {
-				l.zone.Query <- &Query{ question, results }
-			}
-			for result := range results{
-				if result.publish {
-					answers = append(answers, result.rr)
+				results := make(chan *Entry, 16)
+				l.query <- &Query{ question, results }
+				for result := range results{
+					if result.Publish {
+						answers = append(answers, result.RR)
+					}
 				}
 			}
 			l.SendResponse(answers)
 		} else {
 			for _, rr := range msg.Answer {
-				l.zone <- &Entry{
-					expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
-					publish: false,
-					rr:      rr,
+				l.add <- &Entry{
+					Expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
+					Publish: false,
+					RR:      rr,
 				}
 			}
 		}
@@ -115,14 +119,14 @@ func (l *listener) SendResponse(answers []dns.RR) {
 
 func (l *listener) writeMessage(msg *dns.Msg) (err os.Error) {
 	if buf, ok := msg.Pack(); ok {
-		_, err = l.socket.WriteToUDP(buf, IPv4MCASTADDR)
+		_, err = l.conn.WriteToUDP(buf, IPv4MCASTADDR)
 	}
 	return
 }
 
 func (l *listener) readMessage() (*dns.Msg, os.Error) {
 	buf := make([]byte, 1500)
-	read, err := l.socket.Read(buf)
+	read, err := l.conn.Read(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -131,5 +135,4 @@ func (l *listener) readMessage() (*dns.Msg, os.Error) {
 		return msg, nil
 	}
 	return nil, os.NewError("Unable to unpack buffer")
-
 }
