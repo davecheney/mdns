@@ -17,9 +17,9 @@ func (e *Entry) fqdn() string {
 	return e.rr.Header().Name
 }
 
-type query struct {
-	question dns.Question
-	response chan *Entry
+type Query struct {
+	Question dns.Question
+	Results chan *Entry
 }
 
 type entries []*Entry
@@ -27,29 +27,25 @@ type entries []*Entry
 type Zone struct {
 	Domain    string
 	entries   map[string]entries
-	additions chan *Entry
-	questions chan *query
-	listener  *listener
+	Add chan *Entry
+	Query chan *Query
+	conn  	chan *dns.Msg
 }
 
 func NewLocalZone() *Zone {
 	z := &Zone{
 		Domain:    "local.",
 		entries:   make(map[string]entries),
-		additions: make(chan *Entry, 16),
-		questions: make(chan *query, 16),
+		Add: make(chan *Entry, 16),
+		Query: make(chan *Query, 16),
 	}
 	var err os.Error
-	if z.listener, err = listen(z) ; err != nil {
+	if z.listener, err = listen(z.Add) ; err != nil {
 		log.Fatal(err)
 	}	
 	go z.mainloop()
 	go z.listener.mainloop()
 	return z
-}
-
-func (z *Zone) Add(entry *Entry) {
-	z.additions <- entry
 }
 
 func (z *Zone) Query(q dns.Question) <-chan *Entry {
@@ -61,8 +57,8 @@ func (z *Zone) Query(q dns.Question) <-chan *Entry {
 func (z *Zone) mainloop() {
 	for {
 		select {
-		case addition := <-z.additions:
-			z.add(addition)
+		case entry := <-z.Add:
+			z.add(entry)
 		case q := <-z.questions:
 			z.query(q)
 		}

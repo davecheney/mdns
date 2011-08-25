@@ -26,7 +26,7 @@ var (
 	}
 )
 
-func listen(zone *Zone) (*listener, os.Error) {
+func listen(zone chan *Entry) (*listener, os.Error) {
 	listener := &listener{
 		socket: openSocket(net.IPv4zero),
 		zone:   zone,
@@ -69,7 +69,7 @@ func isMulticast(i net.Interface) bool {
 
 type listener struct {
 	socket *net.UDPConn
-	zone   *Zone
+	zone   chan *Entry
 }
 
 func (l *listener) mainloop() {
@@ -80,21 +80,23 @@ func (l *listener) mainloop() {
 		}
 		if msg.IsQuestion() {
 			var answers []dns.RR
+			var results = make(chan *Entry, 16)
 			for _, question := range msg.Question {
-				for result := range l.zone.Query(question) {
-					if result.publish {
-						answers = append(answers, result.rr)
-					}
+				l.zone.Query <- &Query{ question, results }
+			}
+			for result := range results{
+				if result.publish {
+					answers = append(answers, result.rr)
 				}
 			}
 			l.SendResponse(answers)
 		} else {
 			for _, rr := range msg.Answer {
-				l.zone.Add(&Entry{
+				l.zone <- &Entry{
 					expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
 					publish: false,
 					rr:      rr,
-				})
+				}
 			}
 		}
 	}
