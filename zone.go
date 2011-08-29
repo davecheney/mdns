@@ -29,6 +29,8 @@ type Zone struct {
 	entries   map[string]entries
 	Add chan *Entry
 	Query chan *Query
+	Subscribe chan *Query
+	subscriptions []*Query
 }
 
 func NewLocalZone() *Zone {
@@ -38,6 +40,7 @@ func NewLocalZone() *Zone {
 		entries:   make(map[string]entries),
 		Add: add,
 		Query: query,
+		Subscribe: make(chan *Query, 16),
 	}
 	go z.mainloop()
 	listen(openSocket(net.IPv4zero), add, query)
@@ -51,6 +54,8 @@ func (z *Zone) mainloop() {
 			z.add(entry)
 		case q := <-z.Query:
 			z.query(q)
+		case q := <-z.Subscribe:
+			z.subscriptions = append(z.subscriptions, q)
 		}
 	}
 }
@@ -67,3 +72,4 @@ func (z *Zone) query(query *Query) {
 	close(query.Result)
 	log.Printf("Query: %#v", query)
 }
+
