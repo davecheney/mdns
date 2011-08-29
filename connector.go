@@ -1,7 +1,6 @@
 package zeroconf
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -45,42 +44,22 @@ func listen(conn *net.UDPConn, add chan *Entry, query chan *Query) os.Error {
 	return nil
 }
 
-
-func openSocket(ip net.IP) *net.UDPConn {
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{
-		IP:   ip,
-		Port: IPv4MCASTADDR.Port,
+func openSocket(addr *net.UDPAddr) *net.UDPConn {
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr {
+		IP: net.IPv4zero,
+		Port: addr.Port,
 	})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not join %s: %s", addr, err)
 	}
 	return conn
-}
-
-func mcastInterfaces() []net.Interface {
-	ifaces := make([]net.Interface, 0)
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, i := range interfaces {
-		if isMulticast(i) {
-			fmt.Printf("%#v\n", i)
-			ifaces = append(ifaces, i)
-		}
-	}
-	return ifaces
-}
-
-func isMulticast(i net.Interface) bool {
-	return (i.Flags&net.FlagUp > 0) && (i.Flags&net.FlagMulticast > 0)
 }
 
 func (l *listener) mainloop() {
 	for {
 		msg, err := l.readMessage()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Cound not read from %s: %s", l.conn, err)
 		}
 		if msg.IsQuestion() {
 			var answers []dns.RR
@@ -112,7 +91,7 @@ func (l *listener) SendResponse(answers []dns.RR) {
 		msg.MsgHdr.Response = true
 		msg.Answer = answers
 		if err := l.writeMessage(msg); err != nil {
-			log.Fatal(err)
+			log.Fatalf("Cannot send: %s", err)
 		}
 	}
 }
@@ -126,7 +105,7 @@ func (l *listener) writeMessage(msg *dns.Msg) (err os.Error) {
 
 func (l *listener) readMessage() (*dns.Msg, os.Error) {
 	buf := make([]byte, 1500)
-	read, err := l.conn.Read(buf)
+	read, _, err := l.conn.ReadFromUDP(buf)
 	if err != nil {
 		return nil, err
 	}

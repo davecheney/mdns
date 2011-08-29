@@ -2,7 +2,6 @@ package zeroconf
 
 import (
 	"log"
-	"net"
 
 	dns "github.com/miekg/godns"
 )
@@ -43,7 +42,9 @@ func NewLocalZone() *Zone {
 		Subscribe: make(chan *Query, 16),
 	}
 	go z.mainloop()
-	listen(openSocket(net.IPv4zero), add, query)
+	if err := listen(openSocket(IPv4MCASTADDR), add, query) ; err != nil {
+		log.Fatal("Failed to listen: ", err)
+	}
 	return z
 }
 

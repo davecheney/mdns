@@ -11,7 +11,7 @@ import (
 var (
 	zone = zeroconf.NewLocalZone()
 	questions = []dns.Question {
-		{ "_ssh._tcp.local", dns.TypeANY, dns.ClassINET },
+		{ "_ssh._tcp.local.", dns.TypeANY, dns.ClassINET },
 	}
 )
 
