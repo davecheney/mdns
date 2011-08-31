@@ -63,7 +63,14 @@ func (z *Zone) mainloop() {
 
 func (z *Zone) add(entry *Entry) {
 	z.entries[entry.fqdn()] = append(z.entries[entry.fqdn()], entry)
-	log.Printf("Add: %s %#v", entry.fqdn(), entry)
+	z.publish(entry)
+}
+
+func (z *Zone) publish(entry *Entry) {
+	for _, c := range z.subscriptions {
+		// TODO(dfc) use non blocking send
+		c.Result <- entry	
+	}
 }
 
 func (z *Zone) query(query *Query) {
@@ -71,6 +78,5 @@ func (z *Zone) query(query *Query) {
 		query.Result <- entry
 	}
 	close(query.Result)
-	log.Printf("Query: %#v", query)
 }
 

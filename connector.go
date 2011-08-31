@@ -35,7 +35,7 @@ func listen(conn *net.UDPConn, add chan *Entry, query chan *Query) os.Error {
 	if err := conn.JoinGroup(nil, IPv4MCASTADDR.IP); err != nil {
 		return err
 	}
-	l := listener{
+	l := &listener{
                 conn: conn,
                 add:   add,
 		query: query,

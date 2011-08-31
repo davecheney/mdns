@@ -26,7 +26,7 @@ func printer() {
 		Result: results,
 	}
 	for result := range results {	
-		fmt.Printf("%#v", result)
+		fmt.Printf("%#v\n", result)
 	}	
 }
 
