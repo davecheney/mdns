@@ -19,14 +19,14 @@ func printer() {
 	results := make (chan *zeroconf.Entry, 16)
 	zone.Subscribe <- &zeroconf.Query {
 		Question: dns.Question {
-			"", 
-			dns.TypeDNSKEY, 
+			"", // fake
+			dns.TypeANY, 
 			dns.ClassINET,
 		},
 		Result: results,
 	}
 	for result := range results {	
-		fmt.Printf("%#v\n", result)
+		fmt.Printf("%s\n", result.RR)
 	}	
 }
 
@@ -34,6 +34,12 @@ func main() {
 	go printer()
 
 	for {
+		for _, q := range questions {
+			zone.Query <- &zeroconf.Query {
+				Question: q,
+				Result: make(chan *zeroconf.Entry, 16), // ignored
+			}
+		}
 		<- time.After(2e9)
 	}	
 }
