@@ -12,7 +12,7 @@ type Entry struct {
 	Expires int64 // the timestamp when this record will expire in nanoseconds
 	Publish bool  // whether this entry should be broadcast in response to an mDNS question
 	RR      dns.RR
-	Source	*net.UDPAddr
+	Source  *net.UDPAddr
 }
 
 func (e *Entry) fqdn() string {
@@ -33,10 +33,10 @@ type entries []*Entry
 type Zone struct {
 	Domain        string
 	entries       map[string]entries
-	Add           chan *Entry	// add entries to zone
-	Query         chan *Query	// query exsting entries in zone
-	Subscribe     chan *Query	// subscribe to new entries added to zone
-	Broadcast     chan *dns.Msg 	// send messages to listeners
+	Add           chan *Entry   // add entries to zone
+	Query         chan *Query   // query exsting entries in zone
+	Subscribe     chan *Query   // subscribe to new entries added to zone
+	Broadcast     chan *dns.Msg // send messages to listeners
 	subscriptions []*Query
 }
 
@@ -47,16 +47,16 @@ func NewLocalZone() *Zone {
 		entries:   make(map[string]entries),
 		Add:       add,
 		Query:     query,
-		Broadcast:	broadcast,
+		Broadcast: broadcast,
 		Subscribe: make(chan *Query, 16),
 	}
 	go z.mainloop()
 	if err := listen(IPv4MCASTADDR, add, query, broadcast); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
-        if err := listen(IPv6MCASTADDR, add, query, broadcast); err != nil {
-                log.Fatal("Failed to listen: ", err)
-        }
+	if err := listen(IPv6MCASTADDR, add, query, broadcast); err != nil {
+		log.Fatal("Failed to listen: ", err)
+	}
 	return z
 }
 
