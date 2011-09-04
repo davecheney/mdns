@@ -78,6 +78,7 @@ func (l *listener) mainloop() {
 		}
 		if msg.IsQuestion() {
 			var answers []dns.RR
+			fmt.Println(msg)
 			for _, question := range msg.Question {
 				results := make(chan *Entry, 16)
 				l.query <- &Query{question, results}
@@ -87,7 +88,7 @@ func (l *listener) mainloop() {
 					}
 				}
 			}
-			l.SendResponse(answers)
+			l.SendResponse(msg.Question, answers)
 		} else {
 			for _, rr := range msg.Answer {
 				l.add <- &Entry{
@@ -101,10 +102,11 @@ func (l *listener) mainloop() {
 	}
 }
 
-func (l *listener) SendResponse(answers []dns.RR) {
+func (l *listener) SendResponse(q []dns.Question, answers []dns.RR) {
 	if len(answers) > 0 {
 		msg := new(dns.Msg)
 		msg.MsgHdr.Response = true
+		msg.Question = q
 		msg.Answer = answers
 		l.publish <- msg
 	}

@@ -54,9 +54,6 @@ func NewLocalZone() *Zone {
 	if err := listen(IPv4MCASTADDR, add, query, broadcast); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
-	if err := listen(IPv6MCASTADDR, add, query, broadcast); err != nil {
-		log.Fatal("Failed to listen: ", err)
-	}
 	return z
 }
 
@@ -87,7 +84,9 @@ func (z *Zone) publish(entry *Entry) {
 
 func (z *Zone) query(query *Query) {
 	for _, entry := range z.entries[query.Question.Name] {
-		query.Result <- entry
+		if query.Question.Qtype == entry.RR.Header().Rrtype {
+			query.Result <- entry
+		}
 	}
 	close(query.Result)
 }
