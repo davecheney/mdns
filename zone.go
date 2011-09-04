@@ -1,6 +1,7 @@
 package zeroconf
 
 import (
+	"fmt"
 	"log"
 
 	dns "github.com/miekg/godns"
@@ -14,6 +15,10 @@ type Entry struct {
 
 func (e *Entry) fqdn() string {
 	return e.RR.Header().Name
+}
+
+func (e *Entry) String() string {
+	return fmt.Sprintf("%s", e.RR)
 }
 
 type Query struct {
