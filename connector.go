@@ -71,7 +71,7 @@ func openSocket(addr *net.UDPAddr) (*net.UDPConn, os.Error) {
 
 func (l *listener) mainloop() {
 	for {
-		msg, err := l.readMessage()
+		msg, addr, err := l.readMessage()
 		if err != nil {
 			log.Fatalf("Cound not read from %s: %s", l.conn, err)
 		}
@@ -93,6 +93,7 @@ func (l *listener) mainloop() {
 					Expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
 					Publish: false,
 					RR:      rr,
+					Source:	addr,
 				}
 			}
 		}
@@ -124,14 +125,14 @@ func (l *listener) publisher() {
 	panic("publisher exited")
 }
 
-func (l *listener) readMessage() (*dns.Msg, os.Error) {
+func (l *listener) readMessage() (*dns.Msg, *net.UDPAddr, os.Error) {
 	buf := make([]byte, 1500)
-	read, _, err := l.conn.ReadFromUDP(buf)
+	read, addr, err := l.conn.ReadFromUDP(buf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if msg := new(dns.Msg) ; msg.Unpack(buf[:read]) {
-		return msg, nil
+		return msg, addr, nil
 	}
-	return nil, os.NewError("Unable to unpack buffer")
+	return nil, addr, os.NewError("Unable to unpack buffer")
 }

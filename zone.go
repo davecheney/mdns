@@ -3,6 +3,7 @@ package zeroconf
 import (
 	"fmt"
 	"log"
+	"net"
 
 	dns "github.com/miekg/godns"
 )
@@ -11,6 +12,7 @@ type Entry struct {
 	Expires int64 // the timestamp when this record will expire in nanoseconds
 	Publish bool  // whether this entry should be broadcast in response to an mDNS question
 	RR      dns.RR
+	Source	*net.UDPAddr
 }
 
 func (e *Entry) fqdn() string {
@@ -18,7 +20,7 @@ func (e *Entry) fqdn() string {
 }
 
 func (e *Entry) String() string {
-	return fmt.Sprintf("%s", e.RR)
+	return fmt.Sprintf("%s %s (publish: %t)", e.Source, e.RR, e.Publish)
 }
 
 type Query struct {
