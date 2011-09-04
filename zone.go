@@ -23,17 +23,17 @@ func (e *Entry) String() string {
 
 type Query struct {
 	Question dns.Question
-	Result chan *Entry
+	Result   chan *Entry
 }
 
 type entries []*Entry
 
 type Zone struct {
-	Domain    string
-	entries   map[string]entries
-	Add chan *Entry
-	Query chan *Query
-	Subscribe chan *Query
+	Domain        string
+	entries       map[string]entries
+	Add           chan *Entry
+	Query         chan *Query
+	Subscribe     chan *Query
 	subscriptions []*Query
 }
 
@@ -42,12 +42,12 @@ func NewLocalZone() *Zone {
 	z := &Zone{
 		Domain:    "local.",
 		entries:   make(map[string]entries),
-		Add: add,
-		Query: query,
+		Add:       add,
+		Query:     query,
 		Subscribe: make(chan *Query, 16),
 	}
 	go z.mainloop()
-	if err := listen(openSocket(IPv4MCASTADDR), add, query) ; err != nil {
+	if err := listen(openSocket(IPv4MCASTADDR), add, query); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
 	return z
@@ -74,7 +74,7 @@ func (z *Zone) add(entry *Entry) {
 func (z *Zone) publish(entry *Entry) {
 	for _, c := range z.subscriptions {
 		// TODO(dfc) use non blocking send
-		c.Result <- entry	
+		c.Result <- entry
 	}
 }
 
@@ -84,4 +84,3 @@ func (z *Zone) query(query *Query) {
 	}
 	close(query.Result)
 }
-

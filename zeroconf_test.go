@@ -3,7 +3,6 @@ package zeroconf
 import (
 	"testing"
 	"time"
-
 )
 
 var (
