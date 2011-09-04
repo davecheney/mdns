@@ -111,9 +111,7 @@ func (l *listener) SendResponse(answers []dns.RR) {
 
 func (l *listener) writeMessage(msg *dns.Msg) (err os.Error) {
 	if buf, ok := msg.Pack(); ok {
-		// TODO(dfc) conn should connect to the MCAST addr
-		// to avoid having to call WriteToUDP
-		_, err = l.conn.WriteToUDP(buf, IPv4MCASTADDR)
+		_, err = l.conn.WriteToUDP(buf, l.addr)
 	}
 	return
 }
