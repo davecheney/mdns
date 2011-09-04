@@ -28,8 +28,8 @@ var (
 type listener struct {
 	addr  *net.UDPAddr
 	conn  *net.UDPConn
-	add   chan *Entry
-	query chan *Query
+	add   chan *Entry // send entries to zone
+	query chan *Query // send questions to zone
 	publish chan *dns.Msg
 }
 
@@ -49,6 +49,7 @@ func listen(addr *net.UDPAddr, add chan *Entry, query chan *Query, publish chan 
 		publish: publish,
 	}
 	go l.mainloop()
+	go l.publisher()
 	return nil
 }
 
@@ -103,9 +104,7 @@ func (l *listener) SendResponse(answers []dns.RR) {
 		msg := new(dns.Msg)
 		msg.MsgHdr.Response = true
 		msg.Answer = answers
-		if err := l.writeMessage(msg); err != nil {
-			log.Fatalf("Cannot send: %s", err)
-		}
+		l.publish <- msg
 	}
 }
 
@@ -114,6 +113,15 @@ func (l *listener) writeMessage(msg *dns.Msg) (err os.Error) {
 		_, err = l.conn.WriteToUDP(buf, l.addr)
 	}
 	return
+}
+
+func (l *listener) publisher() {
+	for msg := range l.publish {
+		if err := l.writeMessage(msg) ; err != nil {
+			log.Fatalf("Cannot send: %s", err)
+		}
+	}
+	panic("publisher exited")
 }
 
 func (l *listener) readMessage() (*dns.Msg, os.Error) {

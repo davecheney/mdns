@@ -29,10 +29,9 @@ func main() {
 		select {
 		case <-time.After(2e9):
 			for _, q := range questions {
-				zone.Query <- &zeroconf.Query{
-					Question: q,
-					Result:   make(chan *zeroconf.Entry, 16), // ignored
-				}
+				msg := new(dns.Msg)
+				msg.SetQuestion(q.Name, q.Qtype)
+				zone.Broadcast <- msg
 			}
 		case result := <-results:
 			fmt.Printf("%s\n", result)
