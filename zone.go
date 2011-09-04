@@ -38,7 +38,7 @@ type Zone struct {
 }
 
 func NewLocalZone() *Zone {
-	add, query := make(chan *Entry, 16), make(chan *Query, 16)
+	add, query, publish := make(chan *Entry, 16), make(chan *Query, 16), make(chan *dns.Msg, 16)
 	z := &Zone{
 		Domain:    "local.",
 		entries:   make(map[string]entries),
@@ -47,7 +47,7 @@ func NewLocalZone() *Zone {
 		Subscribe: make(chan *Query, 16),
 	}
 	go z.mainloop()
-	if err := listen(openSocket(IPv4MCASTADDR), add, query); err != nil {
+	if err := listen(IPv4MCASTADDR, add, query, publish); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
 	return z
