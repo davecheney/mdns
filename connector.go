@@ -77,18 +77,21 @@ func (l *listener) mainloop() {
 			log.Fatalf("Cound not read from %s: %s", l.conn, err)
 		}
 		if msg.IsQuestion() {
-			var answers []dns.RR
-			fmt.Println(msg)
 			for _, question := range msg.Question {
 				results := make(chan *Entry, 16)
 				l.query <- &Query{question, results}
 				for result := range results {
 					if result.Publish {
-						answers = append(answers, result.RR)
+						msg.Answer = append(msg.Answer, result.RR)
 					}
 				}
 			}
-			l.SendResponse(msg.Question, answers)
+			if len(msg.Answer) > 0 {
+				msg.MsgHdr.Response = true
+				fmt.Println(msg)
+				l.writeMessage(msg)
+				// l.publish <- msg
+			}
 		} else {
 			for _, rr := range msg.Answer {
 				l.add <- &Entry{
@@ -99,16 +102,6 @@ func (l *listener) mainloop() {
 				}
 			}
 		}
-	}
-}
-
-func (l *listener) SendResponse(q []dns.Question, answers []dns.RR) {
-	if len(answers) > 0 {
-		msg := new(dns.Msg)
-		msg.MsgHdr.Response = true
-		msg.Question = q
-		msg.Answer = answers
-		l.publish <- msg
 	}
 }
 
