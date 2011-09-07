@@ -1,6 +1,7 @@
 package zeroconf
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -26,10 +27,10 @@ var (
 )
 
 type listener struct {
-	addr  *net.UDPAddr
-	conn  *net.UDPConn
-	add   chan *Entry // send entries to zone
-	query chan *Query // send questions to zone
+	addr    *net.UDPAddr
+	conn    *net.UDPConn
+	add     chan *Entry // send entries to zone
+	query   chan *Query // send questions to zone
 	publish chan *dns.Msg
 }
 
@@ -42,10 +43,10 @@ func listen(addr *net.UDPAddr, add chan *Entry, query chan *Query, publish chan 
 		return err
 	}
 	l := &listener{
-		addr:  addr,
-		conn:  conn,
-		add:   add,
-		query: query,
+		addr:    addr,
+		conn:    conn,
+		add:     add,
+		query:   query,
 		publish: publish,
 	}
 	go l.mainloop()
@@ -56,16 +57,16 @@ func listen(addr *net.UDPAddr, add chan *Entry, query chan *Query, publish chan 
 func openSocket(addr *net.UDPAddr) (*net.UDPConn, os.Error) {
 	switch addr.IP.To4() {
 	case nil:
-		return net.ListenUDP("udp6", &net.UDPAddr {
-			IP: net.IPv6zero,
+		return net.ListenUDP("udp6", &net.UDPAddr{
+			IP:   net.IPv6zero,
 			Port: addr.Port,
 		})
 	default:
-                return net.ListenUDP("udp4", &net.UDPAddr {
-                        IP: net.IPv4zero,
-                        Port: addr.Port,
-                })
-	}	
+		return net.ListenUDP("udp4", &net.UDPAddr{
+			IP:   net.IPv4zero,
+			Port: addr.Port,
+		})
+	}
 	panic("unreachable")
 }
 
@@ -76,36 +77,31 @@ func (l *listener) mainloop() {
 			log.Fatalf("Cound not read from %s: %s", l.conn, err)
 		}
 		if msg.IsQuestion() {
-			var answers []dns.RR
 			for _, question := range msg.Question {
 				results := make(chan *Entry, 16)
 				l.query <- &Query{question, results}
 				for result := range results {
 					if result.Publish {
-						answers = append(answers, result.RR)
+						msg.Answer = append(msg.Answer, result.RR)
 					}
 				}
 			}
-			l.SendResponse(answers)
+			if len(msg.Answer) > 0 {
+				msg.MsgHdr.Response = true
+				fmt.Println(msg)
+				l.writeMessage(msg)
+				// l.publish <- msg
+			}
 		} else {
 			for _, rr := range msg.Answer {
 				l.add <- &Entry{
 					Expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
 					Publish: false,
 					RR:      rr,
-					Source:	addr,
+					Source:  addr,
 				}
 			}
 		}
-	}
-}
-
-func (l *listener) SendResponse(answers []dns.RR) {
-	if len(answers) > 0 {
-		msg := new(dns.Msg)
-		msg.MsgHdr.Response = true
-		msg.Answer = answers
-		l.publish <- msg
 	}
 }
 
@@ -118,7 +114,7 @@ func (l *listener) writeMessage(msg *dns.Msg) (err os.Error) {
 
 func (l *listener) publisher() {
 	for msg := range l.publish {
-		if err := l.writeMessage(msg) ; err != nil {
+		if err := l.writeMessage(msg); err != nil {
 			log.Fatalf("Cannot send: %s", err)
 		}
 	}
@@ -131,7 +127,7 @@ func (l *listener) readMessage() (*dns.Msg, *net.UDPAddr, os.Error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if msg := new(dns.Msg) ; msg.Unpack(buf[:read]) {
+	if msg := new(dns.Msg); msg.Unpack(buf[:read]) {
 		return msg, addr, nil
 	}
 	return nil, addr, os.NewError("Unable to unpack buffer")

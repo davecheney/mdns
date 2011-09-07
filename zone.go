@@ -12,7 +12,7 @@ type Entry struct {
 	Expires int64 // the timestamp when this record will expire in nanoseconds
 	Publish bool  // whether this entry should be broadcast in response to an mDNS question
 	RR      dns.RR
-	Source	*net.UDPAddr
+	Source  *net.UDPAddr
 }
 
 func (e *Entry) fqdn() string {
@@ -50,10 +50,10 @@ func (e entries) contains(entry *Entry) bool {
 type Zone struct {
 	Domain        string
 	entries       map[string]entries
-	Add           chan *Entry	// add entries to zone
-	Query         chan *Query	// query exsting entries in zone
-	Subscribe     chan *Query	// subscribe to new entries added to zone
-	Broadcast     chan *dns.Msg 	// send messages to listeners
+	Add           chan *Entry   // add entries to zone
+	Query         chan *Query   // query exsting entries in zone
+	Subscribe     chan *Query   // subscribe to new entries added to zone
+	Broadcast     chan *dns.Msg // send messages to listeners
 	subscriptions []*Query
 }
 
@@ -64,7 +64,7 @@ func NewLocalZone() *Zone {
 		entries:   make(map[string]entries),
 		Add:       add,
 		Query:     query,
-		Broadcast:	broadcast,
+		Broadcast: broadcast,
 		Subscribe: make(chan *Query, 16),
 	}
 	go z.mainloop()
@@ -106,7 +106,9 @@ func (z *Zone) publish(entry *Entry) {
 
 func (z *Zone) query(query *Query) {
 	for _, entry := range z.entries[query.Question.Name] {
-		query.Result <- entry
+		if query.Question.Qtype == entry.RR.Header().Rrtype {
+			query.Result <- entry
+		}
 	}
 	close(query.Result)
 }
