@@ -31,10 +31,10 @@ func main() {
 			for _, q := range questions {
 				msg := new(dns.Msg)
 				msg.SetQuestion(q.Name, q.Qtype)
-				zone.Broadcast <- msg
+				// zone.Broadcast <- msg
 			}
 		case result := <-results:
-			fmt.Printf("%s\n", result)
+			fmt.Printf("+ %-32s%32s %s\n", result.Name(), result.Type(), result.Domain())
 		}
 	}
 }

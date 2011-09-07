@@ -1,9 +1,9 @@
 package zeroconf
 
 import (
-	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	dns "github.com/miekg/godns"
 )
@@ -19,8 +19,16 @@ func (e *Entry) fqdn() string {
 	return e.RR.Header().Name
 }
 
-func (e *Entry) String() string {
-	return fmt.Sprintf("%s %s (publish: %t)", e.Source, e.RR, e.Publish)
+func (e *Entry) Domain() string {
+	return "local." // TODO
+}
+
+func (e *Entry) Name() string {
+	return strings.Split(e.fqdn(), ".")[0]
+}
+
+func (e *Entry) Type() string {
+	return e.fqdn()[len(e.Name()+"."):len(e.fqdn())-len(e.Domain())]
 }
 
 type Query struct {
@@ -29,6 +37,15 @@ type Query struct {
 }
 
 type entries []*Entry
+
+func (e entries) contains(entry *Entry) bool {
+	for _, ee := range e {
+		if equals(ee.RR, entry.RR) {
+			return true
+		}
+	}
+	return false
+}
 
 type Zone struct {
 	Domain        string
@@ -54,9 +71,9 @@ func NewLocalZone() *Zone {
 	if err := listen(IPv4MCASTADDR, add, query, broadcast); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
-        if err := listen(IPv6MCASTADDR, add, query, broadcast); err != nil {
-                log.Fatal("Failed to listen: ", err)
-        }
+//        if err := listen(IPv6MCASTADDR, add, query, broadcast); err != nil {
+//               log.Fatal("Failed to listen: ", err)
+//        }
 	return z
 }
 
@@ -74,8 +91,10 @@ func (z *Zone) mainloop() {
 }
 
 func (z *Zone) add(entry *Entry) {
-	z.entries[entry.fqdn()] = append(z.entries[entry.fqdn()], entry)
-	z.publish(entry)
+	if !z.entries[entry.fqdn()].contains(entry) {
+		z.entries[entry.fqdn()] = append(z.entries[entry.fqdn()], entry)
+		z.publish(entry)
+	}
 }
 
 func (z *Zone) publish(entry *Entry) {
@@ -90,4 +109,14 @@ func (z *Zone) query(query *Query) {
 		query.Result <- entry
 	}
 	close(query.Result)
+}
+
+func equals(this, that dns.RR) bool {
+	if _,ok := this.(*dns.RR_ANY) ; ok {
+		return true // *RR_ANY matches anything
+	}
+	if _, ok := that.(*dns.RR_ANY) ; ok {
+		return true // *RR_ANY matches all
+	}
+	return false
 }
