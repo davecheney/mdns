@@ -306,7 +306,6 @@ func (c *connector) mainloop() {
 		*net.UDPAddr
 	}
 	in := make(chan incoming, 32)
-	out := make(chan *dns.Msg, 32)
 	go func() {
 		for {
 			msg, addr, err := c.readMessage()
@@ -329,8 +328,12 @@ func (c *connector) mainloop() {
 					}
 				}
 				if len(r.Answer) > 0 {
+					r.Extra = c.findAdditional(r.Answer)
 					fmt.Println(r)
-					out <- r
+					if err := c.writeMessage(r); err != nil {
+                           	     		log.Fatalf("Cannot send: %s", err)
+                        		}
+
 				}
 			} else {
 				for _, rr := range msg.Answer {
@@ -342,12 +345,12 @@ func (c *connector) mainloop() {
 					})
 				}
 			}
-		case msg := <-out:
-			if err := c.writeMessage(msg); err != nil {
-				log.Fatalf("Cannot send: %s", err)
-			}
 		}
 	}
+}
+
+func (c *connector) findAdditional(rr []dns.RR) []dns.RR {
+	return []dns.RR{}
 }
 
 func (c *connector) query(qs []dns.Question) []*Entry {
