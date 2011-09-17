@@ -13,14 +13,84 @@ import (
 	dns "github.com/miekg/godns"
 )
 
-// commented out till dns.NewRRString() works
-//func Publish(z *Zone, rr string) {
-//	val, err := dns.NewRRString(rr) 
-//	if err != nil {
-//		panic(err.String())
-//	}
-//	PublishRR(z, val)
-//}
+type Host struct {
+	Name   string
+	Domain string
+	Addrs  []net.IP
+}
+
+type Service struct {
+	*Host
+	*Type
+	Port uint16
+}
+
+type proto int
+
+func (p proto) String() string {
+	if p == tcp {
+		return "_tcp"
+	}
+	return "_udp"
+}
+
+const (
+	tcp proto = iota
+	udp
+)
+
+type Type struct {
+	name string
+	proto
+}
+
+var (
+	Ssh = &Type{"_ssh", tcp}
+)
+
+func (s *Service) fqdn() string {
+	return fmt.Sprintf("%s.%s", s.Name, s.Domain)
+}
+
+func (s *Service) service() string {
+	return fmt.Sprintf("%s.%s.%s", s.Type.name, s.Type.proto.String(), s.Domain)
+}
+
+func (s *Service) serviceFqdn() string {
+	return s.Name + "." + s.service()
+}
+
+func Publish(z Zone, s *Service) {
+	for _, addr := range s.Addrs {
+		a := dns.NewRR(dns.TypeA).(*dns.RR_A)
+		a.Hdr.Name = s.fqdn()
+		a.Hdr.Class = dns.ClassINET
+		a.Hdr.Ttl = 3600
+		a.A = addr
+		PublishRR(z, a)
+	}
+
+	ptr := dns.NewRR(dns.TypePTR).(*dns.RR_PTR)
+	ptr.Hdr.Name = s.service()
+	ptr.Hdr.Class = dns.ClassINET
+	ptr.Hdr.Ttl = 3600
+	ptr.Ptr = s.serviceFqdn()
+	PublishRR(z, ptr)
+
+	srv := dns.NewRR(dns.TypeSRV).(*dns.RR_SRV)
+	srv.Hdr.Name = s.serviceFqdn()
+	srv.Hdr.Class = dns.ClassINET
+	srv.Hdr.Ttl = 3600
+	srv.Port = s.Port
+	srv.Target = s.fqdn()
+	PublishRR(z, srv)
+
+	txt := dns.NewRR(dns.TypeTXT).(*dns.RR_TXT)
+	txt.Hdr.Name = s.serviceFqdn()
+	txt.Hdr.Class = dns.ClassINET
+	txt.Hdr.Ttl = 3600
+	PublishRR(z, txt)
+}
 
 func PublishRR(z Zone, rr dns.RR) {
 	z.Add(&Entry{
@@ -95,9 +165,9 @@ func NewLocalZone() Zone {
 	if err := z.listen(IPv4MCASTADDR); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
-	//	if err := z.listen(IPv6MCASTADDR); err != nil {
-	//		log.Fatal("Failed to listen: ", err)
-	//	}	
+	if err := z.listen(IPv6MCASTADDR); err != nil {
+		log.Fatal("Failed to listen: ", err)
+	}
 	return z
 }
 
@@ -206,7 +276,7 @@ func (z *zone) listen(addr *net.UDPAddr) os.Error {
 		return err
 	}
 	c := &connector{
-		UDPAddr:    addr,
+		UDPAddr: addr,
 		UDPConn: conn,
 		Zone:    z,
 	}
@@ -259,6 +329,7 @@ func (c *connector) mainloop() {
 					}
 				}
 				if len(r.Answer) > 0 {
+					fmt.Println(r)
 					out <- r
 				}
 			} else {
@@ -270,7 +341,6 @@ func (c *connector) mainloop() {
 						Source:  msg.UDPAddr,
 					})
 				}
-				fmt.Println(msg)
 			}
 		case msg := <-out:
 			if err := c.writeMessage(msg); err != nil {
