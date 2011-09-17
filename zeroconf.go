@@ -85,22 +85,20 @@ type Zone interface {
 }
 
 func NewLocalZone() Zone {
-	add, query, broadcast := make(chan *Entry, 16), make(chan *Query, 16), make(chan *dns.Msg, 16)
 	z := &zone{
 		Domain:    "local.",
 		entries:   make(map[string]entries),
-		add:       add,
-		query:     query,
-		broadcast: broadcast,
+		add:       make(chan *Entry, 16),
+		query:     make(chan *Query, 16),
 		subscribe: make(chan *Query, 16),
 	}
 	go z.mainloop()
 	if err := z.listen(IPv4MCASTADDR); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
-	//        if err := listen(IPv6MCASTADDR, add, query, broadcast); err != nil {
-	//               log.Fatal("Failed to listen: ", err)
-	//        }
+//	if err := z.listen(IPv6MCASTADDR); err != nil {
+//		log.Fatal("Failed to listen: ", err)
+//	}	
 	return z
 }
 
@@ -126,8 +124,8 @@ func (z *zone) Subscribe(t uint16) chan *Entry {
 	z.subscribe <- &Query{
 		dns.Question {
 			"",
-			dns.ClassINET,
 			t,
+			dns.ClassINET,
 		},
 		res,
 	}
