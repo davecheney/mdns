@@ -71,10 +71,9 @@ func (e entries) contains(entry *Entry) bool {
 type zone struct {
 	Domain        string
 	entries       map[string]entries
-	add           chan *Entry   // add entries to zone
-	query         chan *Query   // query exsting entries in zone
-	subscribe     chan *Query   // subscribe to new entries added to zone
-	broadcast     chan *dns.Msg // send messages to listeners
+	add           chan *Entry // add entries to zone
+	query         chan *Query // query exsting entries in zone
+	subscribe     chan *Query // subscribe to new entries added to zone
 	subscriptions []*Query
 }
 
@@ -96,9 +95,9 @@ func NewLocalZone() Zone {
 	if err := z.listen(IPv4MCASTADDR); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
-//	if err := z.listen(IPv6MCASTADDR); err != nil {
-//		log.Fatal("Failed to listen: ", err)
-//	}	
+	//	if err := z.listen(IPv6MCASTADDR); err != nil {
+	//		log.Fatal("Failed to listen: ", err)
+	//	}	
 	return z
 }
 
@@ -122,7 +121,7 @@ func (z *zone) Add(e *Entry) {
 func (z *zone) Subscribe(t uint16) chan *Entry {
 	res := make(chan *Entry, 16)
 	z.subscribe <- &Query{
-		dns.Question {
+		dns.Question{
 			"",
 			t,
 			dns.ClassINET,
@@ -134,7 +133,7 @@ func (z *zone) Subscribe(t uint16) chan *Entry {
 
 func (z *zone) Query(q dns.Question) chan *Entry {
 	res := make(chan *Entry, 16)
-	z.query <- &Query{ q, res }
+	z.query <- &Query{q, res}
 	return res
 }
 
@@ -149,13 +148,13 @@ func (z *zone) publish(entry *Entry) {
 	for _, c := range z.subscriptions {
 		if c.matches(entry) {
 			c.Result <- entry
-		} 
+		}
 	}
 }
 
 func (z *zone) query0(query *Query) {
 	for _, entry := range z.entries[query.Question.Name] {
-		if query.matches(entry) { 
+		if query.matches(entry) {
 			query.Result <- entry
 		}
 	}
@@ -192,8 +191,8 @@ var (
 	}
 )
 
-type listener struct {
-	addr    *net.UDPAddr
+type connector struct {
+	*net.UDPAddr
 	*net.UDPConn
 	Zone
 }
@@ -206,12 +205,12 @@ func (z *zone) listen(addr *net.UDPAddr) os.Error {
 	if err := conn.JoinGroup(nil, addr.IP); err != nil {
 		return err
 	}
-	l := &listener{
-		addr:    addr,
-		UDPConn:    conn,
-		Zone: z,
+	c := &connector{
+		UDPAddr:    addr,
+		UDPConn: conn,
+		Zone:    z,
 	}
-	go l.mainloop()
+	go c.mainloop()
 	return nil
 }
 
@@ -231,18 +230,18 @@ func openSocket(addr *net.UDPAddr) (*net.UDPConn, os.Error) {
 	panic("unreachable")
 }
 
-func (l *listener) mainloop() {
+func (c *connector) mainloop() {
 	type incoming struct {
 		*dns.Msg
 		*net.UDPAddr
 	}
 	in := make(chan incoming, 32)
-	out := make (chan *dns.Msg, 32)
+	out := make(chan *dns.Msg, 32)
 	go func() {
 		for {
-			msg, addr, err := l.readMessage()
+			msg, addr, err := c.readMessage()
 			if err != nil {
-				log.Fatalf("Cound not read from %s: %s", l.UDPConn, err)
+				log.Fatalf("Cound not read from %s: %s", c.UDPConn, err)
 			}
 			in <- incoming{msg, addr}
 		}
@@ -254,19 +253,19 @@ func (l *listener) mainloop() {
 			if msg.IsQuestion() {
 				r := new(dns.Msg)
 				r.MsgHdr.Response = true
-				for _, result := range l.query(msg.Question) {
+				for _, result := range c.query(msg.Question) {
 					if result.Publish {
 						r.Answer = append(r.Answer, result.RR)
 					}
 				}
 				if len(r.Answer) > 0 {
-					fmt.Println(msg.Msg)	
+					fmt.Println(msg.Msg)
 					fmt.Println(r)
 					out <- r
 				}
 			} else {
 				for _, rr := range msg.Answer {
-					l.Add(&Entry{
+					c.Add(&Entry{
 						Expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
 						Publish: false,
 						RR:      rr,
@@ -275,33 +274,33 @@ func (l *listener) mainloop() {
 				}
 			}
 		case msg := <-out:
-			if err := l.writeMessage(msg); err != nil {
+			if err := c.writeMessage(msg); err != nil {
 				log.Fatalf("Cannot send: %s", err)
 			}
 		}
 	}
 }
 
-func (l *listener) query(qs []dns.Question) []*Entry {
-	result := make([]*Entry,0 )
+func (c *connector) query(qs []dns.Question) []*Entry {
+	result := make([]*Entry, 0)
 	for _, q := range qs {
-		for r := range l.Query(q) {
+		for r := range c.Query(q) {
 			result = append(result, r)
 		}
 	}
 	return result
 }
 
-func (l *listener) writeMessage(msg *dns.Msg) (err os.Error) {
+func (c *connector) writeMessage(msg *dns.Msg) (err os.Error) {
 	if buf, ok := msg.Pack(); ok {
-		_, err = l.WriteToUDP(buf, l.addr)
+		_, err = c.WriteToUDP(buf, c.UDPAddr)
 	}
 	return
 }
 
-func (l *listener) readMessage() (*dns.Msg, *net.UDPAddr, os.Error) {
+func (c *connector) readMessage() (*dns.Msg, *net.UDPAddr, os.Error) {
 	buf := make([]byte, 1500)
-	read, addr, err := l.ReadFromUDP(buf)
+	read, addr, err := c.ReadFromUDP(buf)
 	if err != nil {
 		return nil, nil, err
 	}
