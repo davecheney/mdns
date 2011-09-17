@@ -16,15 +16,7 @@ var (
 )
 
 func main() {
-	results := make(chan *zeroconf.Entry, 16)
-	zone.Subscribe <- &zeroconf.Query{
-		Question: dns.Question{
-			"", // fake
-			dns.TypeANY,
-			dns.ClassINET,
-		},
-		Result: results,
-	}
+	results := zone.Subscribe(dns.TypeANY)
 	for {
 		select {
 		case <-time.After(2e9):
