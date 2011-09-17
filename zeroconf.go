@@ -331,8 +331,8 @@ func (c *connector) mainloop() {
 					r.Extra = c.findAdditional(r.Answer)
 					fmt.Println(r)
 					if err := c.writeMessage(r); err != nil {
-                           	     		log.Fatalf("Cannot send: %s", err)
-                        		}
+						log.Fatalf("Cannot send: %s", err)
+					}
 
 				}
 			} else {
