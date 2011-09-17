@@ -23,16 +23,22 @@ func main() {
 	ptr.Hdr.Name = "_ssh._tcp.local."
 	ptr.Hdr.Class = dns.ClassINET
 	ptr.Hdr.Ttl = 3600
-	ptr.Ptr = "stora._ssh._tcp._local."
+	ptr.Ptr = "stora._ssh._tcp.local."
 	zeroconf.PublishRR(zone, ptr)
 
 	srv := dns.NewRR(dns.TypeSRV).(*dns.RR_SRV)
-	srv.Hdr.Name = "stora._ssh._tcp._local."
+	srv.Hdr.Name = "stora._ssh._tcp.local."
 	srv.Hdr.Class = dns.ClassINET
 	srv.Hdr.Ttl = 3600
 	srv.Port = 22
 	srv.Target = "stora.local."
 	zeroconf.PublishRR(zone, srv)
+
+	txt := dns.NewRR(dns.TypeTXT).(*dns.RR_TXT)
+	txt.Hdr.Name = "stora._ssh._tcp.local."
+	txt.Hdr.Class = dns.ClassINET
+	txt.Hdr.Ttl = 3600
+	zeroconf.PublishRR(zone, txt)
 
 	<-make(chan bool)
 }

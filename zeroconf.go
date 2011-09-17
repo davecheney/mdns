@@ -259,8 +259,6 @@ func (c *connector) mainloop() {
 					}
 				}
 				if len(r.Answer) > 0 {
-					fmt.Println(msg.Msg)
-					fmt.Println(r)
 					out <- r
 				}
 			} else {
@@ -272,6 +270,7 @@ func (c *connector) mainloop() {
 						Source:  msg.UDPAddr,
 					})
 				}
+				fmt.Println(msg)
 			}
 		case msg := <-out:
 			if err := c.writeMessage(msg); err != nil {
