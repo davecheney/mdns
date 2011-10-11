@@ -148,7 +148,8 @@ type zone struct {
 }
 
 type Zone interface {
-	Query(dns.Question) chan *Entry
+	Query(dns.Question) []*Entry
+	QueryAdditional(dns.Question) ([]*Entry, []*Entry)
 	Subscribe(uint16) chan *Entry
 	Add(*Entry)
 }
@@ -201,10 +202,17 @@ func (z *zone) Subscribe(t uint16) chan *Entry {
 	return res
 }
 
-func (z *zone) Query(q dns.Question) chan *Entry {
+func (z *zone) Query(q dns.Question) (entries []*Entry) { 
 	res := make(chan *Entry, 16)
 	z.query <- &Query{q, res}
-	return res
+	for e := range res {
+		entries = append(entries, e)
+	}
+	return entries
+}
+
+func (z *zone) QueryAdditional(q dns.Question) ([]*Entry, []*Entry) {
+	return z.Query(q), nil 
 }
 
 func (z *zone) add0(entry *Entry) {
@@ -353,14 +361,11 @@ func (c *connector) findAdditional(rr []dns.RR) []dns.RR {
 	return []dns.RR{}
 }
 
-func (c *connector) query(qs []dns.Question) []*Entry {
-	result := make([]*Entry, 0)
-	for _, q := range qs {
-		for r := range c.Query(q) {
-			result = append(result, r)
-		}
-	}
-	return result
+func (c *connector) query(qs []dns.Question) (results []*Entry) {
+       for _, q := range qs {
+		results = append(results, c.Query(q)...)
+       }
+	return 
 }
 
 func (c *connector) writeMessage(msg *dns.Msg) (err os.Error) {
