@@ -1,8 +1,8 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=github.com/davecheney/zeroconf
+TARG=github.com/davecheney/mdns
 GOFILES=\
-	zeroconf.go\
+	mdns.go\
 
 include $(GOROOT)/src/Make.pkg
 

@@ -5,11 +5,11 @@ import (
 	"time"
 
 	dns "github.com/miekg/godns"
-	"github.com/davecheney/zeroconf"
+	"github.com/davecheney/mdns"
 )
 
 var (
-	zone      = zeroconf.NewLocalZone()
+	zone      = mdns.NewLocalZone()
 	questions = []dns.Question{
 		{"_ssh._tcp.local.", dns.TypeANY, dns.ClassINET},
 	}

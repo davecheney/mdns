@@ -1,14 +1,14 @@
 Installation
 ============
 
-    goinstall github.com/davecheney/zeroconf
+    goinstall github.com/davecheney/mdns
 
 Usage
 =====
 
-An simple zeroconf browser is provided
+An simple mdns browser client is provided
 
-    make -C $GOROOT/src/pkg/github.com/davecheney/zeroconf/examples/zerconf-browser install
+    make -C $GOROOT/src/pkg/github.com/davecheney/mdns/examples/mdns-browser install
     
 
 

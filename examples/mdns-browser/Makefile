@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=zeroconf-browser
+TARG=mdns-browser
 GOFILES=\
 	browser.go\
 
