@@ -202,7 +202,7 @@ func (z *zone) Subscribe(t uint16) chan *Entry {
 	return res
 }
 
-func (z *zone) Query(q dns.Question) (entries []*Entry) { 
+func (z *zone) Query(q dns.Question) (entries []*Entry) {
 	res := make(chan *Entry, 16)
 	z.query <- &Query{q, res}
 	for e := range res {
@@ -212,7 +212,7 @@ func (z *zone) Query(q dns.Question) (entries []*Entry) {
 }
 
 func (z *zone) QueryAdditional(q dns.Question) ([]*Entry, []*Entry) {
-	return z.Query(q), nil 
+	return z.Query(q), nil
 }
 
 func (z *zone) add0(entry *Entry) {
@@ -330,9 +330,15 @@ func (c *connector) mainloop() {
 			if msg.IsQuestion() {
 				r := new(dns.Msg)
 				r.MsgHdr.Response = true
-				for _, result := range c.query(msg.Question) {
+				results, additionals := c.query(msg.Question)
+				for _, result := range results {
 					if result.Publish {
 						r.Answer = append(r.Answer, result.RR)
+					}
+				}
+				for _, additional := range additionals {
+					if additional.Publish {
+						r.Extra = append(r.Extra, additional.RR)
 					}
 				}
 				if len(r.Answer) > 0 {
@@ -361,11 +367,13 @@ func (c *connector) findAdditional(rr []dns.RR) []dns.RR {
 	return []dns.RR{}
 }
 
-func (c *connector) query(qs []dns.Question) (results []*Entry) {
-       for _, q := range qs {
-		results = append(results, c.Query(q)...)
-       }
-	return 
+func (c *connector) query(qs []dns.Question) (results []*Entry, additionals []*Entry) {
+	for _, q := range qs {
+		result, additional := c.QueryAdditional(q)
+		results = append(results, result...)
+		additionals = append(additionals, additional...)
+	}
+	return
 }
 
 func (c *connector) writeMessage(msg *dns.Msg) (err os.Error) {
