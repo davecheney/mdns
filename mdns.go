@@ -1,3 +1,4 @@
+// Advertise network services via multicast DNS
 package mdns
 
 import (
