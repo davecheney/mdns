@@ -6,7 +6,7 @@ This package allows Go processes to publish multicast DNS style records onto the
 Acknowledgements
 ================
 
-Thanks to Brian Ketelsen and Miek Gieben for their feedback and suggestions. This package builds on the Miek's fantastic godns library and would not have been possible without it.
+Thanks to Brian Ketelsen and Miek Gieben for their feedback and suggestions. This package builds on Miek's fantastic godns library and would not have been possible without it.
 
 Installation
 ============
