@@ -9,14 +9,13 @@ import (
 )
 
 var (
-	zone      = mdns.NewLocalZone()
 	questions = []dns.Question{
 		{"_ssh._tcp.local.", dns.TypeANY, dns.ClassINET},
 	}
 )
 
 func main() {
-	results := zone.Subscribe(dns.TypeANY)
+	results := mdns.Subscribe(dns.TypeANY)
 	for {
 		select {
 		case <-time.After(2e9):
