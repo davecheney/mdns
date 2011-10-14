@@ -1,6 +1,4 @@
-package zeroconf
-
-// convenience routines
+package mdns
 
 import (
 	"fmt"
@@ -11,6 +9,20 @@ import (
 	"time"
 
 	dns "github.com/miekg/godns"
+)
+
+const seconds = 1e9
+
+var (  
+        ipv4mcastaddr = &net.UDPAddr{
+                IP:   net.ParseIP("224.0.0.251"),
+                Port: 5353,
+        }
+
+        ipv6mcastaddr = &net.UDPAddr{
+                IP:   net.ParseIP("ff02::fb"),
+                Port: 5353,
+        }
 )
 
 type Host struct {
@@ -163,10 +175,10 @@ func NewLocalZone() Zone {
 		subscribe: make(chan *Query, 16),
 	}
 	go z.mainloop()
-	if err := z.listen(IPv4MCASTADDR); err != nil {
+	if err := z.listen(ipv4mcastaddr); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
-	if err := z.listen(IPv6MCASTADDR); err != nil {
+	if err := z.listen(ipv6mcastaddr); err != nil {
 		log.Fatal("Failed to listen: ", err)
 	}
 	return z
@@ -252,22 +264,6 @@ func equals(this, that dns.RR) bool {
 	}
 	return false
 }
-
-const (
-	seconds = 1e9
-)
-
-var (
-	IPv4MCASTADDR = &net.UDPAddr{
-		IP:   net.ParseIP("224.0.0.251"),
-		Port: 5353,
-	}
-
-	IPv6MCASTADDR = &net.UDPAddr{
-		IP:   net.ParseIP("ff02::fb"),
-		Port: 5353,
-	}
-)
 
 type connector struct {
 	*net.UDPAddr
