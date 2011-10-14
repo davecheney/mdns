@@ -29,4 +29,7 @@ Then calling one of the publish functions
 
     mdns.PublishA("yourhost.local", 3600, net.IP(192,168,1,100))
 
-This places an A record into the internal zone file. Broadcast mDNS queries that match records in the internal zone file are responded to automatically.
+This places an A record into the internal zone file. Broadcast mDNS queries that match records in the internal zone file are responded to automatically. Other records types are supported, check the godoc for more information.
+
+    godoc githib.com/davecheney/mdns
+
