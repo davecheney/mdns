@@ -1,7 +1,6 @@
 package mdns
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -13,119 +12,94 @@ import (
 
 const seconds = 1e9
 
-var (  
-        ipv4mcastaddr = &net.UDPAddr{
-                IP:   net.ParseIP("224.0.0.251"),
-                Port: 5353,
-        }
+var (
+	ipv4mcastaddr = &net.UDPAddr{
+		IP:   net.ParseIP("224.0.0.251"),
+		Port: 5353,
+	}
 
-        ipv6mcastaddr = &net.UDPAddr{
-                IP:   net.ParseIP("ff02::fb"),
-                Port: 5353,
-        }
+	ipv6mcastaddr = &net.UDPAddr{
+		IP:   net.ParseIP("ff02::fb"),
+		Port: 5353,
+	}
 	local *zone // the local mdns zone
 )
 
 func init() {
-        local = &zone{
-                Domain:    "local.",
-                entries:   make(map[string]entries),
-                add:       make(chan *entry, 16),
-                queries:     make(chan *Query, 16),
-                subscribe: make(chan *Query, 16),
-        }
-        go local.mainloop()
-        if err := local.listen(ipv4mcastaddr); err != nil {
-                log.Fatal("Failed to listen: ", err)
-        }
-        if err := local.listen(ipv6mcastaddr); err != nil {
-                log.Fatal("Failed to listen: ", err)
-        }
-}
-
-type host struct {
-	Name   string
-	Domain string
-	Addrs  []net.IP
-}
-
-type Service struct {
-	host
-	_type
-	Port uint16
-}
-
-type proto int
-
-func (p proto) String() string {
-	if p == tcp {
-		return "_tcp"
+	local = &zone{
+		entries:   make(map[string]entries),
+		add:       make(chan *entry, 16),
+		queries:   make(chan *query, 16),
+		subscribe: make(chan *query, 16),
 	}
-	return "_udp"
-}
-
-const (
-	tcp proto = iota
-	udp
-)
-
-type _type struct {
-	name string
-	proto
-}
-
-var (
-	Ssh = &_type{"_ssh", tcp}
-)
-
-func (s *Service) fqdn() string {
-	return fmt.Sprintf("%s.%s", s.Name, s.Domain)
-}
-
-func (s *Service) service() string {
-	return fmt.Sprintf("%s.%s.%s", s.name, s.proto.String(), s.Domain)
-}
-
-func (s *Service) serviceFqdn() string {
-	return s.Name + "." + s.service()
-}
-
-func Publish(s *Service) {
-	for _, addr := range s.Addrs {
-		a := dns.NewRR(dns.TypeA).(*dns.RR_A)
-		a.Hdr.Name = s.fqdn()
-		a.Hdr.Class = dns.ClassINET
-		a.Hdr.Ttl = 3600
-		a.A = addr
-		PublishRR(a)
+	go local.mainloop()
+	if err := local.listen(ipv4mcastaddr); err != nil {
+		log.Fatal("Failed to listen: ", err)
 	}
-
-	ptr := dns.NewRR(dns.TypePTR).(*dns.RR_PTR)
-	ptr.Hdr.Name = s.service()
-	ptr.Hdr.Class = dns.ClassINET
-	ptr.Hdr.Ttl = 3600
-	ptr.Ptr = s.serviceFqdn()
-	PublishRR(ptr)
-
-	srv := dns.NewRR(dns.TypeSRV).(*dns.RR_SRV)
-	srv.Hdr.Name = s.serviceFqdn()
-	srv.Hdr.Class = dns.ClassINET
-	srv.Hdr.Ttl = 3600
-	srv.Port = s.Port
-	srv.Target = s.fqdn()
-	PublishRR(srv)
-
-	txt := dns.NewRR(dns.TypeTXT).(*dns.RR_TXT)
-	txt.Hdr.Name = s.serviceFqdn()
-	txt.Hdr.Class = dns.ClassINET
-	txt.Hdr.Ttl = 3600
-	PublishRR(txt)
+	if err := local.listen(ipv6mcastaddr); err != nil {
+		log.Fatal("Failed to listen: ", err)
+	}
 }
 
-func PublishRR(rr dns.RR) {
+// Add an A record. fqdn should be the full domain name, including .local.
+func PublishA(fqdn string, ttl int, ip net.IP) {
 	local.add <- &entry{
-		Publish: true,
-		RR:      rr,
+		publish: true,
+		RR: &dns.RR_A{
+			Hdr: dns.RR_Header{
+				Name:   fqdn,
+				Rrtype: dns.TypeA,
+				Class:  dns.ClassINET,
+				Ttl:    uint32(ttl),
+			},
+			A: ip,
+		},
+	}
+}
+
+func PublishPTR(fqdn string, ttl int, target string) {
+	local.add <- &entry{
+		publish: true,
+		RR: &dns.RR_PTR{
+			Hdr: dns.RR_Header{
+				Name:   fqdn,
+				Rrtype: dns.TypePTR,
+				Class:  dns.ClassINET,
+				Ttl:    uint32(ttl),
+			},
+			Ptr: target,
+		},
+	}
+}
+
+func PublishSRV(fqdn string, ttl int, target string, port int) {
+	local.add <- &entry{
+		publish: true,
+		RR: &dns.RR_SRV{
+			Hdr: dns.RR_Header{
+				Name:   fqdn,
+				Rrtype: dns.TypeSRV,
+				Class:  dns.ClassINET,
+				Ttl:    uint32(ttl),
+			},
+			Target: target,
+			Port:   uint16(port),
+		},
+	}
+}
+
+func PublishTXT(fqdn string, ttl int, txt string) {
+	local.add <- &entry{
+		publish: true,
+		RR: &dns.RR_TXT{
+			Hdr: dns.RR_Header{
+				Name:   fqdn,
+				Rrtype: dns.TypeTXT,
+				Class:  dns.ClassINET,
+				Ttl:    uint32(ttl),
+			},
+			Txt: txt,
+		},
 	}
 }
 
@@ -133,18 +107,17 @@ type Entry interface {
 	Domain() string
 	Name() string
 	Type() string
-	Header() *dns.RR_Header
 }
 
 type entry struct {
 	Expires int64 // the timestamp when this record will expire in nanoseconds
-	Publish bool  // whether this entry should be broadcast in response to an mDNS question
+	publish bool  // whether this entry should be broadcast in response to an mDNS question
 	dns.RR
-	Source  *net.UDPAddr
+	Source *net.UDPAddr
 }
 
 func (e *entry) fqdn() string {
-	return e.RR.Header().Name
+	return e.Header().Name
 }
 
 func (e *entry) Domain() string {
@@ -160,19 +133,19 @@ func (e *entry) Type() string {
 }
 
 func (e *entry) equals(entry Entry) bool {
-	return true 
+	return true
 }
 
-type Query struct {
+type query struct {
 	dns.Question
-	result   chan Entry
+	result chan Entry
 }
 
 type entries []*entry
 
-func (e entries) contains(entry Entry) bool {
+func (e entries) contains(entry *entry) bool {
 	for _, ee := range e {
-		if ee.equals(entry) {
+		if equals(entry.RR, ee.RR) {
 			return true
 		}
 	}
@@ -180,12 +153,11 @@ func (e entries) contains(entry Entry) bool {
 }
 
 type zone struct {
-	Domain        string
 	entries       map[string]entries
 	add           chan *entry // add entries to zone
-	queries         chan *Query // query exsting entries in zone
-	subscribe     chan *Query // subscribe to new entries added to zone
-	subscriptions []*Query
+	queries       chan *query // query exsting entries in zone
+	subscribe     chan *query // subscribe to new entries added to zone
+	subscriptions []*query
 }
 
 func (z *zone) mainloop() {
@@ -193,16 +165,16 @@ func (z *zone) mainloop() {
 		select {
 		case entry := <-z.add:
 			if !z.entries[entry.fqdn()].contains(entry) {
-                		z.entries[entry.fqdn()] = append(z.entries[entry.fqdn()], entry)
-                		z.publish(entry)
-        		}
-		case q := <-z.queries:
-		        for _, entry := range z.entries[q.Question.Name] {
-               	 		if q.matches(entry) {
-                        		q.result <- entry
-                		}
+				z.entries[entry.fqdn()] = append(z.entries[entry.fqdn()], entry)
+				z.publish(entry)
 			}
-        		close(q.result)
+		case q := <-z.queries:
+			for _, entry := range z.entries[q.Question.Name] {
+				if q.matches(entry) {
+					q.result <- entry
+				}
+			}
+			close(q.result)
 		case q := <-z.subscribe:
 			z.subscriptions = append(z.subscriptions, q)
 		}
@@ -211,7 +183,7 @@ func (z *zone) mainloop() {
 
 func Subscribe(t uint16) chan Entry {
 	res := make(chan Entry, 16)
-	local.subscribe <- &Query{
+	local.subscribe <- &query{
 		dns.Question{
 			"",
 			t,
@@ -222,13 +194,13 @@ func Subscribe(t uint16) chan Entry {
 	return res
 }
 
-func (z *zone) query(q dns.Question) (entries []*entry, extra []*entry) {
+func (z *zone) query(q dns.Question) (entries []*entry) {
 	res := make(chan Entry, 16)
-	z.queries <- &Query{q, res}
+	z.queries <- &query{q, res}
 	for e := range res {
 		entries = append(entries, e.(*entry))
 	}
-	return 
+	return
 }
 
 func (z *zone) publish(entry *entry) {
@@ -239,8 +211,8 @@ func (z *zone) publish(entry *entry) {
 	}
 }
 
-func (q *Query) matches(entry Entry) bool {
-	return q.Question.Qtype == dns.TypeANY || q.Question.Qtype == entry.Header().Rrtype
+func (q *query) matches(entry *entry) bool {
+	return q.Question.Qtype == dns.TypeANY || q.Question.Qtype == entry.RR.Header().Rrtype
 }
 
 func equals(this, that dns.RR) bool {
@@ -270,7 +242,7 @@ func (z *zone) listen(addr *net.UDPAddr) os.Error {
 	c := &connector{
 		UDPAddr: addr,
 		UDPConn: conn,
-		zone: z,
+		zone:    z,
 	}
 	go c.mainloop()
 	return nil
@@ -293,41 +265,37 @@ func openSocket(addr *net.UDPAddr) (*net.UDPConn, os.Error) {
 }
 
 func (c *connector) mainloop() {
-	type incoming struct {
+	in := make(chan struct {
 		*dns.Msg
 		*net.UDPAddr
-	}
-	in := make(chan incoming, 32)
+	}, 32)
 	go func() {
 		for {
 			msg, addr, err := c.readMessage()
 			if err != nil {
 				log.Fatalf("Cound not read from %s: %s", c.UDPConn, err)
 			}
-			in <- incoming{msg, addr}
+			in <- struct {
+				*dns.Msg
+				*net.UDPAddr
+			}{msg, addr}
 		}
 	}()
-
 	for {
 		select {
 		case msg := <-in:
 			if msg.IsQuestion() {
 				r := new(dns.Msg)
 				r.MsgHdr.Response = true
-				results, additionals := c.query(msg.Question)
-				for _, result := range results {
-					if result.Publish {
+				r.Question = msg.Question
+				for _, result := range c.query(msg.Question) {
+					if result.publish {
 						r.Answer = append(r.Answer, result.RR)
 					}
 				}
-				for _, additional := range additionals {
-					if additional.Publish {
-						r.Extra = append(r.Extra, additional.RR)
-					}
-				}
+				r.Extra = append(r.Extra, c.findExtra(r.Answer...)...)
+				log.Printf("%s", r)
 				if len(r.Answer) > 0 {
-					r.Extra = c.findAdditional(r.Answer)
-					fmt.Println(r)
 					if err := c.writeMessage(r); err != nil {
 						log.Fatalf("Cannot send: %s", err)
 					}
@@ -337,7 +305,7 @@ func (c *connector) mainloop() {
 				for _, rr := range msg.Answer {
 					c.add <- &entry{
 						Expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
-						Publish: false,
+						publish: false,
 						RR:      rr,
 						Source:  msg.UDPAddr,
 					}
@@ -347,15 +315,42 @@ func (c *connector) mainloop() {
 	}
 }
 
-func (c *connector) findAdditional(rr []dns.RR) []dns.RR {
-	return []dns.RR{}
+func (c *connector) query(qs []dns.Question) (results []*entry) {
+	for _, q := range qs {
+		results = append(results, c.zone.query(q)...)
+	}
+	return
 }
 
-func (c *connector) query(qs []dns.Question) (results []*entry, additionals []*entry) {
-	for _, q := range qs {
-		result, additional := c.zone.query(q)
-		results = append(results, result...)
-		additionals = append(additionals, additional...)
+// recursively probe for related records
+func (c *connector) findExtra(r ...dns.RR) (extra []dns.RR) {
+	for _, rr := range r {
+		var q dns.Question
+		switch rr := rr.(type) {
+		case *dns.RR_PTR:
+			q = dns.Question{
+				Name:   rr.Ptr,
+				Qtype:  dns.TypeANY,
+				Qclass: dns.ClassINET,
+			}
+		case *dns.RR_SRV:
+			q = dns.Question{
+				Name:   rr.Target,
+				Qtype:  dns.TypeA,
+				Qclass: dns.ClassINET,
+			}
+
+		default:
+			continue
+		}
+		res := c.zone.query(q)
+		if len(res) > 0 {
+			for _, entry := range res {
+				if entry.publish {
+					extra = append(append(extra, entry.RR), c.findExtra(entry.RR)...)
+				}
+			}
+		}
 	}
 	return
 }

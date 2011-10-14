@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=zeroconf-publisher
+TARG=mdns-publisher
 GOFILES=\
 	publisher.go\
 

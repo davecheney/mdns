@@ -6,33 +6,16 @@ import (
 	"github.com/davecheney/mdns"
 )
 
-var (
-	zone = mdns.NewLocalZone()
-)
-
 func main() {
-	host := &mdns.Host{
-		"stora",
-		"local.",
-		[]net.IP{net.IPv4(192, 168, 1, 200)},
-	}
-	service := &mdns.Service{
-		host,
-		mdns.Ssh,
-		22,
-	}
+	mdns.PublishA("stora.local.", 3600, net.IPv4(192, 168, 1, 200))
+	mdns.PublishPTR("_ssh._tcp.local.", 3600, "stora._ssh._tcp.local.")
+	mdns.PublishSRV("stora._ssh._tcp.local.", 3600, "stora.local.", 22)
+	mdns.PublishTXT("stora._ssh._tcp.local.", 3600, "")
 
-	mdns.Publish(zone, service)
-
-	mdns.Publish(zone, &mdns.Service{
-		&mdns.Host{
-			"router",
-			"local.",
-			[]net.IP{net.IPv4(192, 168, 1, 254)},
-		},
-		mdns.Ssh,
-		22,
-	})
+	mdns.PublishA("router.local.", 3600, net.IPv4(192, 168, 1, 254))
+	mdns.PublishPTR("_ssh._tcp.local.", 3600, "router._ssh._tcp.local.")
+	mdns.PublishSRV("router._ssh._tcp.local.", 3600, "router.local.", 22)
+	mdns.PublishTXT("router._ssh._tcp.local.", 3600, "")
 
 	<-make(chan bool)
 }
