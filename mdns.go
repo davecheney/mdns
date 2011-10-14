@@ -294,7 +294,6 @@ func (c *connector) mainloop() {
 					}
 				}
 				r.Extra = append(r.Extra, c.findExtra(r.Answer...)...)
-				log.Printf("%s", r)
 				if len(r.Answer) > 0 {
 					if err := c.writeMessage(r); err != nil {
 						log.Fatalf("Cannot send: %s", err)
