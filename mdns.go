@@ -4,13 +4,9 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
-	"time"
 
 	dns "github.com/miekg/godns"
 )
-
-const seconds = 1e9
 
 var (
 	ipv4mcastaddr = &net.UDPAddr{
@@ -27,24 +23,22 @@ var (
 
 func init() {
 	local = &zone{
-		entries:   make(map[string]entries),
-		add:       make(chan *entry, 16),
-		queries:   make(chan *query, 16),
-		subscribe: make(chan *query, 16),
+		entries: make(map[string]entries),
+		add:     make(chan *entry, 16),
+		queries: make(chan *query, 16),
 	}
 	go local.mainloop()
 	if err := local.listen(ipv4mcastaddr); err != nil {
-		log.Fatal("Failed to listen: ", err)
+		log.Fatalf("Failed to listen %s: %s", ipv4mcastaddr, err)
 	}
 	if err := local.listen(ipv6mcastaddr); err != nil {
-		log.Fatal("Failed to listen: ", err)
+		log.Printf("Failed to listen %s: %s", ipv6mcastaddr, err)
 	}
 }
 
-// Add an A record. fqdn should be the full domain name, including .local.
+// Add an A record. fqdn should be fully qualified, including local.
 func PublishA(fqdn string, ttl int, ip net.IP) {
 	local.add <- &entry{
-		publish: true,
 		RR: &dns.RR_A{
 			Hdr: dns.RR_Header{
 				Name:   fqdn,
@@ -57,9 +51,9 @@ func PublishA(fqdn string, ttl int, ip net.IP) {
 	}
 }
 
+// Publish a PTR record, fqdn should be fully qualified, including local.
 func PublishPTR(fqdn string, ttl int, target string) {
 	local.add <- &entry{
-		publish: true,
 		RR: &dns.RR_PTR{
 			Hdr: dns.RR_Header{
 				Name:   fqdn,
@@ -72,9 +66,9 @@ func PublishPTR(fqdn string, ttl int, target string) {
 	}
 }
 
+// Publish a SRV record, fqdn and target should be fully qualified, including local.
 func PublishSRV(fqdn string, ttl int, target string, port int) {
 	local.add <- &entry{
-		publish: true,
 		RR: &dns.RR_SRV{
 			Hdr: dns.RR_Header{
 				Name:   fqdn,
@@ -88,9 +82,9 @@ func PublishSRV(fqdn string, ttl int, target string, port int) {
 	}
 }
 
+// Publish a TXT record, fqdn should be fully qualified, including local.
 func PublishTXT(fqdn string, ttl int, txt string) {
 	local.add <- &entry{
-		publish: true,
 		RR: &dns.RR_TXT{
 			Hdr: dns.RR_Header{
 				Name:   fqdn,
@@ -103,49 +97,24 @@ func PublishTXT(fqdn string, ttl int, txt string) {
 	}
 }
 
-type Entry interface {
-	Domain() string
-	Name() string
-	Type() string
-}
-
 type entry struct {
-	Expires int64 // the timestamp when this record will expire in nanoseconds
-	publish bool  // whether this entry should be broadcast in response to an mDNS question
 	dns.RR
-	Source *net.UDPAddr
 }
 
 func (e *entry) fqdn() string {
 	return e.Header().Name
 }
 
-func (e *entry) Domain() string {
-	return "local." // TODO
-}
-
-func (e *entry) Name() string {
-	return strings.Split(e.fqdn(), ".")[0]
-}
-
-func (e *entry) Type() string {
-	return e.fqdn()[len(e.Name()+".") : len(e.fqdn())-len(e.Domain())]
-}
-
-func (e *entry) equals(entry Entry) bool {
-	return true
-}
-
 type query struct {
 	dns.Question
-	result chan Entry
+	result chan *entry
 }
 
 type entries []*entry
 
 func (e entries) contains(entry *entry) bool {
 	for _, ee := range e {
-		if equals(entry.RR, ee.RR) {
+		if equals(entry, ee) {
 			return true
 		}
 	}
@@ -153,11 +122,9 @@ func (e entries) contains(entry *entry) bool {
 }
 
 type zone struct {
-	entries       map[string]entries
-	add           chan *entry // add entries to zone
-	queries       chan *query // query exsting entries in zone
-	subscribe     chan *query // subscribe to new entries added to zone
-	subscriptions []*query
+	entries map[string]entries
+	add     chan *entry // add entries to zone
+	queries chan *query // query exsting entries in zone
 }
 
 func (z *zone) mainloop() {
@@ -166,7 +133,6 @@ func (z *zone) mainloop() {
 		case entry := <-z.add:
 			if !z.entries[entry.fqdn()].contains(entry) {
 				z.entries[entry.fqdn()] = append(z.entries[entry.fqdn()], entry)
-				z.publish(entry)
 			}
 		case q := <-z.queries:
 			for _, entry := range z.entries[q.Question.Name] {
@@ -175,51 +141,28 @@ func (z *zone) mainloop() {
 				}
 			}
 			close(q.result)
-		case q := <-z.subscribe:
-			z.subscriptions = append(z.subscriptions, q)
 		}
 	}
-}
-
-func Subscribe(t uint16) chan Entry {
-	res := make(chan Entry, 16)
-	local.subscribe <- &query{
-		dns.Question{
-			"",
-			t,
-			dns.ClassINET,
-		},
-		res,
-	}
-	return res
 }
 
 func (z *zone) query(q dns.Question) (entries []*entry) {
-	res := make(chan Entry, 16)
+	res := make(chan *entry, 16)
 	z.queries <- &query{q, res}
 	for e := range res {
-		entries = append(entries, e.(*entry))
+		entries = append(entries, e)
 	}
 	return
-}
-
-func (z *zone) publish(entry *entry) {
-	for _, c := range z.subscriptions {
-		if c.matches(entry) {
-			c.result <- entry
-		}
-	}
 }
 
 func (q *query) matches(entry *entry) bool {
 	return q.Question.Qtype == dns.TypeANY || q.Question.Qtype == entry.RR.Header().Rrtype
 }
 
-func equals(this, that dns.RR) bool {
-	if _, ok := this.(*dns.RR_ANY); ok {
+func equals(this, that *entry) bool {
+	if _, ok := this.RR.(*dns.RR_ANY); ok {
 		return true // *RR_ANY matches anything
 	}
-	if _, ok := that.(*dns.RR_ANY); ok {
+	if _, ok := that.RR.(*dns.RR_ANY); ok {
 		return true // *RR_ANY matches all
 	}
 	return false
@@ -275,40 +218,24 @@ func (c *connector) mainloop() {
 			if err != nil {
 				log.Fatalf("Cound not read from %s: %s", c.UDPConn, err)
 			}
-			in <- struct {
-				*dns.Msg
-				*net.UDPAddr
-			}{msg, addr}
+			if msg.IsQuestion() {
+				in <- struct {
+					*dns.Msg
+					*net.UDPAddr
+				}{msg, addr}
+			}
 		}
 	}()
 	for {
-		select {
-		case msg := <-in:
-			if msg.IsQuestion() {
-				r := new(dns.Msg)
-				r.MsgHdr.Response = true
-				r.Question = msg.Question
-				for _, result := range c.query(msg.Question) {
-					if result.publish {
-						r.Answer = append(r.Answer, result.RR)
-					}
-				}
-				r.Extra = append(r.Extra, c.findExtra(r.Answer...)...)
-				if len(r.Answer) > 0 {
-					if err := c.writeMessage(r); err != nil {
-						log.Fatalf("Cannot send: %s", err)
-					}
-
-				}
-			} else {
-				for _, rr := range msg.Answer {
-					c.add <- &entry{
-						Expires: time.Nanoseconds() + int64(rr.Header().Ttl*seconds),
-						publish: false,
-						RR:      rr,
-						Source:  msg.UDPAddr,
-					}
-				}
+		msg := <-in
+		msg.MsgHdr.Response = true // convert question to response
+		for _, result := range c.query(msg.Question) {
+			msg.Answer = append(msg.Answer, result.RR)
+		}
+		msg.Extra = append(msg.Extra, c.findExtra(msg.Answer...)...)
+		if len(msg.Answer) > 0 {
+			if err := c.writeMessage(msg.Msg); err != nil {
+				log.Fatalf("Cannot send: %s", err)
 			}
 		}
 	}
@@ -338,16 +265,13 @@ func (c *connector) findExtra(r ...dns.RR) (extra []dns.RR) {
 				Qtype:  dns.TypeA,
 				Qclass: dns.ClassINET,
 			}
-
 		default:
 			continue
 		}
 		res := c.zone.query(q)
 		if len(res) > 0 {
 			for _, entry := range res {
-				if entry.publish {
-					extra = append(append(extra, entry.RR), c.findExtra(entry.RR)...)
-				}
+				extra = append(append(extra, entry.RR), c.findExtra(entry.RR)...)
 			}
 		}
 	}
