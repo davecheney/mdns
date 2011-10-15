@@ -217,7 +217,8 @@ func (c *connector) mainloop() {
 		for {
 			msg, addr, err := c.readMessage()
 			if err != nil {
-				log.Fatalf("Cound not read from %s: %s", c.UDPConn, err)
+				// log dud packets
+				log.Printf("Cound not read from %s: %s", c.UDPConn, err)
 			}
 			if msg.IsQuestion() {
 				in <- struct {
