@@ -33,3 +33,15 @@ This places an A record into the internal zone file. Broadcast mDNS queries that
 
     godoc githib.com/davecheney/mdns
 
+Tested Platforms
+================
+
+This package has been tested on the following platforms
+* linux/arm
+* linux/386
+* darwin/386
+
+Changelog
+=========
+
+14/10/2011 Initial Release
