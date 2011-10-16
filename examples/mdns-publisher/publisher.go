@@ -27,5 +27,5 @@ func main() {
 	// are not records defined by RFC 2782.
 	mdns.PublishTXT("stora._ssh._tcp.local.", 3600, "")
 
-	<-make(chan bool)
+	select {}
 }
