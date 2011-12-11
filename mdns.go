@@ -2,9 +2,9 @@
 package mdns
 
 import (
+	"errors"
 	"log"
 	"net"
-	"os"
 
 	dns "github.com/miekg/godns"
 )
@@ -175,7 +175,7 @@ type connector struct {
 	*zone
 }
 
-func (z *zone) listen(addr *net.UDPAddr) os.Error {
+func (z *zone) listen(addr *net.UDPAddr) error {
 	conn, err := openSocket(addr)
 	if err != nil {
 		return err
@@ -192,7 +192,7 @@ func (z *zone) listen(addr *net.UDPAddr) os.Error {
 	return nil
 }
 
-func openSocket(addr *net.UDPAddr) (*net.UDPConn, os.Error) {
+func openSocket(addr *net.UDPAddr) (*net.UDPConn, error) {
 	switch addr.IP.To4() {
 	case nil:
 		return net.ListenUDP("udp6", &net.UDPAddr{
@@ -281,7 +281,7 @@ func (c *connector) findExtra(r ...dns.RR) (extra []dns.RR) {
 }
 
 // encode an mdns msg and broadcast it on the wire
-func (c *connector) writeMessage(msg *dns.Msg) (err os.Error) {
+func (c *connector) writeMessage(msg *dns.Msg) (err error) {
 	if buf, ok := msg.Pack(); ok {
 		_, err = c.WriteToUDP(buf, c.UDPAddr)
 	}
@@ -289,7 +289,7 @@ func (c *connector) writeMessage(msg *dns.Msg) (err os.Error) {
 }
 
 // consume an mdns packet from the wire and decode it
-func (c *connector) readMessage() (*dns.Msg, *net.UDPAddr, os.Error) {
+func (c *connector) readMessage() (*dns.Msg, *net.UDPAddr, error) {
 	buf := make([]byte, 1500)
 	read, addr, err := c.ReadFromUDP(buf)
 	if err != nil {
@@ -298,5 +298,5 @@ func (c *connector) readMessage() (*dns.Msg, *net.UDPAddr, os.Error) {
 	if msg := new(dns.Msg); msg.Unpack(buf[:read]) {
 		return msg, addr, nil
 	}
-	return nil, addr, os.NewError("Unable to unpack buffer")
+	return nil, addr, errors.New("Unable to unpack buffer")
 }

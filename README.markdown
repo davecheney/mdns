@@ -15,6 +15,8 @@ This package is goinstall'able.
 
     goinstall github.com/davecheney/mdns
 
+For development, this package is developed with John Asmuths excellent gb utility.
+
 Usage
 =====
 
