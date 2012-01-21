@@ -1,0 +1,3 @@
+[submodule "github.com/miekg/godns"]
+	path = github.com/miekg/godns
+	url = https://github.com/miekg/godns.git
