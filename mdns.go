@@ -192,15 +192,9 @@ func (z *zone) listen(addr *net.UDPAddr) error {
 func openSocket(addr *net.UDPAddr) (*net.UDPConn, error) {
 	switch addr.IP.To4() {
 	case nil:
-		return net.ListenMulticastUDP("udp6", nil, &net.UDPAddr{
-			IP:   net.IPv6zero,
-			Port: addr.Port,
-		})
+		return net.ListenMulticastUDP("udp6", nil, ipv6mcastaddr)
 	default:
-		return net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{
-			IP:   net.IPv4zero,
-			Port: addr.Port,
-		})
+		return net.ListenMulticastUDP("udp4", nil, ipv4mcastaddr)
 	}
 	panic("unreachable")
 }
