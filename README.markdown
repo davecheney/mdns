@@ -44,6 +44,17 @@ This package has been tested on the following platforms
 * linux/386
 * darwin/386
 
+gmx Instruments
+===============
+
+Counters for zone queries and entries, as well as connecto questions and responses are instrumented via gmx.
+
+	gmxc -p $(pgrep mdns-publisher) mdns | sort
+	mdns.connector.questions: 0
+	mdns.connector.responses: 0
+	mdns.zone.local.entries: 5
+	mdns.zone.local.queries: 0
+
 Changelog
 =========
 
