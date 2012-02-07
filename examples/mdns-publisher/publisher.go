@@ -2,8 +2,7 @@ package main
 
 import (
 	"net"
-
-	"github.com/davecheney/mdns"
+	"dns"
 )
 
 func main() {
