@@ -1,4 +1,4 @@
-package main
+package mdns
 
 import gmx "github.com/davecheney/gmx"
 
