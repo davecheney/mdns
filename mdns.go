@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 
-	dns "github.com/miekg/godns"
+	"dns"
 )
 
 var (
@@ -180,9 +180,6 @@ func (z *zone) listen(addr *net.UDPAddr) error {
 	if err != nil {
 		return err
 	}
-	if err := conn.JoinGroup(nil, addr.IP); err != nil {
-		return err
-	}
 	c := &connector{
 		UDPAddr: addr,
 		UDPConn: conn,
@@ -195,12 +192,12 @@ func (z *zone) listen(addr *net.UDPAddr) error {
 func openSocket(addr *net.UDPAddr) (*net.UDPConn, error) {
 	switch addr.IP.To4() {
 	case nil:
-		return net.ListenUDP("udp6", &net.UDPAddr{
+		return net.ListenMulticastUDP("udp6", nil, &net.UDPAddr{
 			IP:   net.IPv6zero,
 			Port: addr.Port,
 		})
 	default:
-		return net.ListenUDP("udp4", &net.UDPAddr{
+		return net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{
 			IP:   net.IPv4zero,
 			Port: addr.Port,
 		})
