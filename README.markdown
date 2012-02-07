@@ -50,10 +50,10 @@ gmx Instruments
 Counters for zone queries and entries, as well as connecto questions and responses are instrumented via gmx.
 
 	gmxc -p $(pgrep mdns-publisher) mdns | sort
-	mdns.connector.questions: 0
-	mdns.connector.responses: 0
+	mdns.connector.questions: 3
+	mdns.connector.responses: 3
 	mdns.zone.local.entries: 5
-	mdns.zone.local.queries: 0
+	mdns.zone.local.queries: 12
 
 Changelog
 =========
