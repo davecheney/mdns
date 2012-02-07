@@ -47,4 +47,10 @@ This package has been tested on the following platforms
 Changelog
 =========
 
+07/02/2012
+
+* Updated LICENCE to a proper BSD 2 clause
+* Added gmx instrumentation
+* Updated to the Go 1 multicast API 
+
 14/10/2011 Initial Release
