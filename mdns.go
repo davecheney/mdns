@@ -126,16 +126,21 @@ type zone struct {
 	entries map[string]entries
 	add     chan *entry // add entries to zone
 	queries chan *query // query exsting entries in zone
+	
+	// gmx statistics
+	queryCount, entryCount int
 }
 
 func (z *zone) mainloop() {
 	for {
 		select {
 		case entry := <-z.add:
+			z.entryCount++
 			if !z.entries[entry.fqdn()].contains(entry) {
 				z.entries[entry.fqdn()] = append(z.entries[entry.fqdn()], entry)
 			}
 		case q := <-z.queries:
+			z.queryCount++
 			for _, entry := range z.entries[q.Question.Name] {
 				if q.matches(entry) {
 					q.result <- entry
@@ -173,6 +178,9 @@ type connector struct {
 	*net.UDPAddr
 	*net.UDPConn
 	*zone
+	
+	// gmx statistics
+	questions, responses int
 }
 
 func (z *zone) listen(addr *net.UDPAddr) error {
@@ -212,6 +220,7 @@ func (c *connector) mainloop() {
 				log.Printf("Cound not read from %s: %s", c.UDPConn, err)
 			}
 			if msg.IsQuestion() {
+				c.questions++
 				in <- struct {
 					*dns.Msg
 					*net.UDPAddr
@@ -227,6 +236,7 @@ func (c *connector) mainloop() {
 		}
 		msg.Extra = append(msg.Extra, c.findExtra(msg.Answer...)...)
 		if len(msg.Answer) > 0 {
+			c.responses++
 			if err := c.writeMessage(msg.Msg); err != nil {
 				log.Fatalf("Cannot send: %s", err)
 			}
