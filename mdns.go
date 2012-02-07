@@ -1,5 +1,6 @@
-// Advertise network services via multicast DNS
 package mdns
+
+// Advertise network services via multicast DNS
 
 import (
 	"errors"
@@ -7,6 +8,7 @@ import (
 	"net"
 
 	"dns"
+	"github.com/davecheney/gmx"
 )
 
 var (
@@ -35,6 +37,15 @@ func init() {
 	if err := local.listen(ipv6mcastaddr); err != nil {
 		log.Printf("Failed to listen %s: %s", ipv6mcastaddr, err)
 	}
+
+	// publish gmx stats for the local zone
+	gmx.Publish("mdns.zone.local.queries", func() interface{} {
+                return local.queryCount
+        })
+        gmx.Publish("mdns.zone.local.entries", func() interface{} {
+                return local.entryCount
+        })
+
 }
 
 // Add an A record. fqdn should be fully qualified, including local.
@@ -194,6 +205,15 @@ func (z *zone) listen(addr *net.UDPAddr) error {
 		zone:    z,
 	}
 	go c.mainloop()
+
+	// publish gmx stats for the connector
+	gmx.Publish("mdns.connector.questions", func() interface{} {
+                return c.questions
+        })
+        gmx.Publish("mdns.connector.responses", func() interface{} {
+                return c.responses
+        })
+
 	return nil
 }
 
