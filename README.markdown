@@ -20,16 +20,11 @@ For development, this package is developed with John Asmuths excellent gb utilit
 Usage
 =====
 
-Publishing mDNS records is as simple as importing the mdns page
+Publishing mDNS records is simple
 
-    import (
-        "net"	// needed for net.IP		
-        "github.com/davecheney/mdns"
-    )
+    import "github.com/davecheney/mdns"
 
-Then calling one of the publish functions
-
-    mdns.PublishA("yourhost.local", 3600, net.IP(192,168,1,100))
+    mdns.Publish("yourhost.local 60 IN A 192.168.1.100")
 
 This places an A record into the internal zone file. Broadcast mDNS queries that match records in the internal zone file are responded to automatically. Other records types are supported, check the godoc for more information.
 
@@ -42,12 +37,14 @@ This package has been tested on the following platforms
 
 * linux/arm
 * linux/386
+* linus/amd64
 * darwin/386
+* darwin/amd64
 
 gmx Instruments
 ===============
 
-Counters for zone queries and entries, as well as connecto questions and responses are instrumented via gmx.
+Counters for zone queries and entries, as well as connector questions and responses are instrumented via gmx.
 
 	gmxc -p $(pgrep mdns-publisher) mdns | sort
 	mdns.connector.questions: 3
@@ -57,6 +54,10 @@ Counters for zone queries and entries, as well as connecto questions and respons
 
 Changelog
 =========
+
+12/02/2012
+
+* Simplified mdns.Publish method, thanks to Miek Gieben for his quick work adding parsing support for SRV and PTR records.
 
 07/02/2012
 

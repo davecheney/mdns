@@ -25,7 +25,7 @@ func main() {
 	mustPublish("_ssh._tcp.local. 60 IN PTR stora._ssh._tcp.local.")
 
 	// Publish a SRV record tying the _ssh._tcp record to an A record and a port.
-	mustPublish("stora 60 IN SRV 0 0 22 stora.local.")
+	mustPublish("stora._ssh._tcp.local. 60 IN SRV 0 0 22 stora.local.")
 
 	// Most mDNS browsing tools expect a TXT record for the service even if there
 	// are not records defined by RFC 2782.
