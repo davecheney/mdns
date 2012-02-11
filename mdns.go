@@ -40,73 +40,22 @@ func init() {
 
 	// publish gmx stats for the local zone
 	gmx.Publish("mdns.zone.local.queries", func() interface{} {
-                return local.queryCount
-        })
-        gmx.Publish("mdns.zone.local.entries", func() interface{} {
-                return local.entryCount
-        })
+		return local.queryCount
+	})
+	gmx.Publish("mdns.zone.local.entries", func() interface{} {
+		return local.entryCount
+	})
 
 }
 
-// Add an A record. fqdn should be fully qualified, including local.
-func PublishA(fqdn string, ttl int, ip net.IP) {
-	local.add <- &entry{
-		RR: &dns.RR_A{
-			Hdr: dns.RR_Header{
-				Name:   fqdn,
-				Rrtype: dns.TypeA,
-				Class:  dns.ClassINET,
-				Ttl:    uint32(ttl),
-			},
-			A: ip,
-		},
+// Publish adds a record, described in RFC XXX 
+func Publish(r string) error {
+	rr, err := dns.NewRR(r)
+	if err != nil {
+		return err
 	}
-}
-
-// Publish a PTR record, fqdn should be fully qualified, including local.
-func PublishPTR(fqdn string, ttl int, target string) {
-	local.add <- &entry{
-		RR: &dns.RR_PTR{
-			Hdr: dns.RR_Header{
-				Name:   fqdn,
-				Rrtype: dns.TypePTR,
-				Class:  dns.ClassINET,
-				Ttl:    uint32(ttl),
-			},
-			Ptr: target,
-		},
-	}
-}
-
-// Publish a SRV record, fqdn and target should be fully qualified, including local.
-func PublishSRV(fqdn string, ttl int, target string, port int) {
-	local.add <- &entry{
-		RR: &dns.RR_SRV{
-			Hdr: dns.RR_Header{
-				Name:   fqdn,
-				Rrtype: dns.TypeSRV,
-				Class:  dns.ClassINET,
-				Ttl:    uint32(ttl),
-			},
-			Target: target,
-			Port:   uint16(port),
-		},
-	}
-}
-
-// Publish a TXT record, fqdn should be fully qualified, including local.
-func PublishTXT(fqdn string, ttl int, txt string) {
-	local.add <- &entry{
-		RR: &dns.RR_TXT{
-			Hdr: dns.RR_Header{
-				Name:   fqdn,
-				Rrtype: dns.TypeTXT,
-				Class:  dns.ClassINET,
-				Ttl:    uint32(ttl),
-			},
-			Txt: txt,
-		},
-	}
+	local.add <- &entry{rr}
+	return nil
 }
 
 type entry struct {
@@ -137,7 +86,7 @@ type zone struct {
 	entries map[string]entries
 	add     chan *entry // add entries to zone
 	queries chan *query // query exsting entries in zone
-	
+
 	// gmx statistics
 	queryCount, entryCount int
 }
@@ -189,7 +138,7 @@ type connector struct {
 	*net.UDPAddr
 	*net.UDPConn
 	*zone
-	
+
 	// gmx statistics
 	questions, responses int
 }
@@ -208,11 +157,11 @@ func (z *zone) listen(addr *net.UDPAddr) error {
 
 	// publish gmx stats for the connector
 	gmx.Publish("mdns.connector.questions", func() interface{} {
-                return c.questions
-        })
-        gmx.Publish("mdns.connector.responses", func() interface{} {
-                return c.responses
-        })
+		return c.questions
+	})
+	gmx.Publish("mdns.connector.responses", func() interface{} {
+		return c.responses
+	})
 
 	return nil
 }
