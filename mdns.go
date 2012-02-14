@@ -176,27 +176,28 @@ func openSocket(addr *net.UDPAddr) (*net.UDPConn, error) {
 	panic("unreachable")
 }
 
-func (c *connector) mainloop() {
-	in := make(chan struct {
-		*dns.Msg
-		*net.UDPAddr
-	}, 32)
-	go func() {
-		for {
-			msg, addr, err := c.readMessage()
-			if err != nil {
-				// log dud packets
-				log.Printf("Cound not read from %s: %s", c.UDPConn, err)
-			}
-			if msg.IsQuestion() {
-				c.questions++
-				in <- struct {
-					*dns.Msg
-					*net.UDPAddr
-				}{msg, addr}
-			}
+type pkt struct {
+	*dns.Msg
+	*net.UDPAddr
+}
+
+func (c *connector) readloop(in chan pkt) {
+	for {
+		msg, addr, err := c.readMessage()
+		if err != nil {
+			// log dud packets
+			log.Printf("Cound not read from %s: %s", c.UDPConn, err)
 		}
-	}()
+		if msg.IsQuestion() {
+			c.questions++
+			in <- pkt{msg, addr}
+		}
+	}
+}
+
+func (c *connector) mainloop() {
+	in := make(chan pkt, 32)
+	go c.readloop(in)
 	for {
 		msg := <-in
 		msg.MsgHdr.Response = true // convert question to response
@@ -206,6 +207,8 @@ func (c *connector) mainloop() {
 		msg.Extra = append(msg.Extra, c.findExtra(msg.Answer...)...)
 		if len(msg.Answer) > 0 {
 			c.responses++
+			// nuke questions
+			msg.Question = nil
 			if err := c.writeMessage(msg.Msg); err != nil {
 				log.Fatalf("Cannot send: %s", err)
 			}
