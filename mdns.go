@@ -7,7 +7,7 @@ import (
 	"log"
 	"net"
 
-	"dns"
+	"github.com/miekg/dns"
 	"github.com/davecheney/gmx"
 )
 
