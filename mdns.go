@@ -27,7 +27,7 @@ var (
 func init() {
 	local = &zone{
 		entries: make(map[string]entries),
-		add:     make(chan *entry, 16),
+		add:     make(chan *entry),
 		queries: make(chan *query, 16),
 	}
 	go local.mainloop()
