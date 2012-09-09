@@ -7,8 +7,8 @@ import (
 	"log"
 	"net"
 
-	"github.com/miekg/dns"
 	"github.com/davecheney/gmx"
+	"github.com/miekg/dns"
 )
 
 var (
@@ -188,7 +188,7 @@ func (c *connector) readloop(in chan pkt) {
 			// log dud packets
 			log.Printf("Cound not read from %s: %s", c.UDPConn, err)
 		}
-		if msg.IsQuestion() {
+		if len(msg.Question) > 0 {
 			c.questions++
 			in <- pkt{msg, addr}
 		}
