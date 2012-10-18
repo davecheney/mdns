@@ -3,7 +3,6 @@ package mdns
 // Advertise network services via multicast DNS
 
 import (
-	"errors"
 	"log"
 	"net"
 
@@ -254,11 +253,13 @@ func (c *connector) findExtra(r ...dns.RR) (extra []dns.RR) {
 }
 
 // encode an mdns msg and broadcast it on the wire
-func (c *connector) writeMessage(msg *dns.Msg) (err error) {
-	if buf, ok := msg.Pack(); ok {
-		_, err = c.WriteToUDP(buf, c.UDPAddr)
+func (c *connector) writeMessage(msg *dns.Msg) error {
+	buf, err := msg.Pack()
+	if err != nil {
+		return err
 	}
-	return
+	_, err = c.WriteToUDP(buf, c.UDPAddr)
+	return err
 }
 
 // consume an mdns packet from the wire and decode it
@@ -268,8 +269,9 @@ func (c *connector) readMessage() (*dns.Msg, *net.UDPAddr, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if msg := new(dns.Msg); msg.Unpack(buf[:read]) {
-		return msg, addr, nil
+	var msg dns.Msg
+	if err := msg.Unpack(buf[:read]); err != nil {
+		return nil, nil, err
 	}
-	return nil, addr, errors.New("Unable to unpack buffer")
+	return &msg, addr, nil
 }
