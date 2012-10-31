@@ -37,7 +37,7 @@ This package has been tested on the following platforms
 
 * linux/arm
 * linux/386
-* linus/amd64
+* linux/amd64
 * darwin/386
 * darwin/amd64
 
