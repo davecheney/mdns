@@ -11,9 +11,9 @@ Thanks to Brian Ketelsen and Miek Gieben for their feedback and suggestions. Thi
 Installation
 ============
 
-This package is goinstall'able.
+This package can be installed using:
 
-    goinstall github.com/davecheney/mdns
+    go get github.com/davecheney/mdns
 
 For development, this package is developed with John Asmuths excellent gb utility.
 
@@ -28,7 +28,7 @@ Publishing mDNS records is simple
 
 This places an A record into the internal zone file. Broadcast mDNS queries that match records in the internal zone file are responded to automatically. Other records types are supported, check the godoc for more information.
 
-    godoc githib.com/davecheney/mdns
+    go doc github.com/davecheney/mdns
 
 Tested Platforms
 ================
