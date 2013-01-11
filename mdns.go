@@ -124,11 +124,11 @@ func (q *query) matches(entry *entry) bool {
 }
 
 func equals(this, that *entry) bool {
-	if _, ok := this.RR.(*dns.RR_ANY); ok {
-		return true // *RR_ANY matches anything
+	if _, ok := this.RR.(*dns.ANY); ok {
+		return true // *ANY matches anything
 	}
-	if _, ok := that.RR.(*dns.RR_ANY); ok {
-		return true // *RR_ANY matches all
+	if _, ok := that.RR.(*dns.ANY); ok {
+		return true // *ANY matches all
 	}
 	return false
 }
@@ -227,13 +227,13 @@ func (c *connector) findExtra(r ...dns.RR) (extra []dns.RR) {
 	for _, rr := range r {
 		var q dns.Question
 		switch rr := rr.(type) {
-		case *dns.RR_PTR:
+		case *dns.PTR:
 			q = dns.Question{
 				Name:   rr.Ptr,
 				Qtype:  dns.TypeANY,
 				Qclass: dns.ClassINET,
 			}
-		case *dns.RR_SRV:
+		case *dns.SRV:
 			q = dns.Question{
 				Name:   rr.Target,
 				Qtype:  dns.TypeA,
