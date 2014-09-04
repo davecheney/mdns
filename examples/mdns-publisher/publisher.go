@@ -34,7 +34,7 @@ func main() {
 	mustPublish(`stora._ssh._tcp.local. 60 IN TXT ""`)
 
 	// Bind this service into the list of registered services for dns-sd.
-	mustPublish("_service._dns-sd._udp.local. 60 IN PTR _ssh._tcp.local.")
+	mustPublish("_services._dns-sd._udp.local. 60 IN PTR _ssh._tcp.local.")
 
 	select {}
 }
