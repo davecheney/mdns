@@ -47,7 +47,7 @@ func init() {
 
 }
 
-// Publish adds a record, described in RFC XXX 
+// Publish adds a record, described in RFC XXX
 func Publish(r string) error {
 	rr, err := dns.NewRR(r)
 	if err != nil {
@@ -208,7 +208,7 @@ func (c *connector) mainloop() {
 			c.responses++
 			// nuke questions
 			msg.Question = nil
-			if err := c.writeMessage(msg.Msg); err != nil {
+			if err := c.writeMessage(msg.Msg, msg.UDPAddr); err != nil {
 				log.Fatalf("Cannot send: %s", err)
 			}
 		}
@@ -253,12 +253,12 @@ func (c *connector) findExtra(r ...dns.RR) (extra []dns.RR) {
 }
 
 // encode an mdns msg and broadcast it on the wire
-func (c *connector) writeMessage(msg *dns.Msg) error {
+func (c *connector) writeMessage(msg *dns.Msg, addr *net.UDPAddr) error {
 	buf, err := msg.Pack()
 	if err != nil {
 		return err
 	}
-	_, err = c.WriteToUDP(buf, c.UDPAddr)
+	_, err = c.WriteToUDP(buf, addr)
 	return err
 }
 
